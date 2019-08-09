@@ -8,9 +8,6 @@ const Cu = Components.utils;
 const Cc = Components.classes;
 const Ci = Components.interfaces;
 
-const consoleService = Cc["@mozilla.org/consoleservice;1"]
-  .getService(Ci.nsIConsoleService);
-
 Cu.import("resource:///modules/gloda/public.js");
 Cu.import("resource://replymanager/modules/replyManagerCalendar.jsm");
 Cu.import("resource:///modules/mailServices.js");
@@ -19,9 +16,7 @@ Cu.import("resource:///modules/StringBundle.js");
 Cu.import("resource://gre/modules/Preferences.jsm");
 try {
   Cu.import("resource://calendar/modules/calUtils.jsm");
-} catch(e) {
-  consoleService.logStringMessage('Lightning not installed');
-}
+} catch(e) {}
 
 let ReplyManagerUtils = {
   CcBccSettingChanged: false,
@@ -34,7 +29,7 @@ let ReplyManagerUtils = {
    *    1. address: the mailbox address of the recipient without the name
    *    2. didReply: true if the recipients has replied.
    */
-  getNotRepliedForGlodaMsg: function ReplyManagerUtils_getNotRepliedForGlodaMsg(aGlodaMsg, callback) {
+  getNotRepliedForGlodaMsg: function (aGlodaMsg, callback) {
     aGlodaMsg.conversation.getMessagesCollection({
       onItemsAdded: function() {},
       onItemsModified: function() {},
@@ -52,7 +47,7 @@ let ReplyManagerUtils = {
         let bccList = {};
         let getList = function(aList) {
           let rvList = {};
-          for (let address of aList) {
+          for (let address in aList) {
             let addressValue = address.value;
             rvList[addressValue] = true;
           }
@@ -64,19 +59,12 @@ let ReplyManagerUtils = {
         let includeCC = Preferences.get("extensions.replymanager.includecc", true);
         let includeBCC = Preferences.get("extensions.replymanager.includebcc", true);
         let counter = 0;
-        let registeredAddresses = new Set();
         for (let i = 0; i < aGlodaMsg.recipients.length; ++i) {
           let address = aGlodaMsg.recipients[i].value;
-          if (registeredAddresses.has(address)) {
-            continue;
-          }
-
           if (!(ccList[address] && !includeCC) && !(bccList[address] && !includeBCC)) {
-            let didReply = aCollection.items.some(aItem => aItem.from.value == address);
+            let didReply = aCollection.items.some(function(aItem) aItem.from.value == address);
             recipients[counter++] = new recipient(address, didReply);
           }
-
-          registeredAddresses.add(address);
         }
 
         callback(aGlodaMsg, aCollection, recipients);
@@ -184,17 +172,15 @@ let ReplyManagerUtils = {
     let replyManagerStrings = new StringBundle("chrome://replymanager/locale/replyManager.properties");
     let headerParser = MailServices.headerParser;
     // We need to merge the three fields and remove duplicates.
-    // To make it simpler, we can create an object and make
-    // each address a property of that object. This prevents
-    // duplicates.
-    let recipients = {};
+    // To make it simpler, we use set.
+    let recipients = new Set();
     let mergeFunction = function (addressStr) {
       if (addressStr != "") {
         let addressListObj = {};
         headerParser.parseHeadersWithArray(addressStr, addressListObj, {}, {});
         for (let recipient of addressListObj.value) {
-          //Let's make the address the name of the property
-          recipients[recipient] = true;
+          //Let's add the address to the recipients set
+          recipients.add(recipient);
         }
       }
     };
@@ -205,15 +191,15 @@ let ReplyManagerUtils = {
     if (Preferences.get("extensions.replymanager.includebcc", true)) {
       mergeFunction(aMsgHdr.bccList);
     }
-    let finalRecipients = Object.getOwnPropertyNames(recipients);
+    let finalRecipients = Array.from(recipients.values()).join(", ");
 
     // If we initialized using a whole date string, the date will be 1 less
-    // than the real value so we need to separete the values.
+    // than the real value so we need to separate the values.
     let dateStr = aMsgHdr.getStringProperty("ExpectReplyDate");
 	// Convert to locale date string
 	localeDateStr = (new Date(dateStr)).toLocaleDateString();
     let date = getDateForICalString(dateStr);
-    let status = "\"" + aMsgHdr.mime2DecodedSubject + "\" " + replyManagerStrings.getString("NotAllReplied")
+    let status = "\"" + aMsgHdr.mime2DecodedSubject + "\" " + replyManagerStrings.getString("NotAllReplied") + " "
                       + finalRecipients + " " + replyManagerStrings.getString("DeadlineForReplies") +  " " + localeDateStr;
     ReplyManagerCalendar.addEvent(date, aMsgHdr.messageId, status);
   },
@@ -272,12 +258,15 @@ function indexMessage(aMsgHdr) {
 }
 
 function getNotRepliedRecipients(aRecipientsList) {
-  // return recipients = [recipient.address for each ([i, recipient] in Iterator(aRecipientsList))
-  //   if (!recipient.didReply)].join(",");
-  const recipients = aRecipientsList
-    .filter(recipient => !recipient.didReply)
-    .map(recipient => recipient.address);
-  return recipients.join(',');
+  let recipients = [];
+
+  for (let [i, recipient] in Iterator(aRecipientsList)) {
+    if (!recipient.didReply) {
+      recipients.push(recipient.address);
+    }
+  }
+
+  return recipients.join(", ");
 }
 
 //Remove the '-' in the date string to get a date string used by iCalString
@@ -301,7 +290,7 @@ let isExpectReply = {
   },
 
   defineAttribute: function() {
-    this._isExpectReplyAttribute = Gloda.defineAttribute({
+    this._attrIsExpectReply = Gloda.defineAttribute({
       provider: this,
       extensionName: "replyManager",
       attributeType: Gloda.kAttrExplicit,
@@ -315,7 +304,7 @@ let isExpectReply = {
     });
   },
 
-  process: function*(aGlodaMessage, aRawReps, aIsNew, aCallbackHandle) {
+  process: function* (aGlodaMessage, aRawReps, aIsNew, aCallbackHandle) {
     aGlodaMessage.isExpectReply =
            ReplyManagerUtils.isHdrExpectReply(aRawReps.header);
     yield Gloda.kWorkDone;

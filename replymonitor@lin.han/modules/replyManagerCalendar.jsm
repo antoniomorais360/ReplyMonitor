@@ -11,10 +11,10 @@ const ReplyManager = "ReplyManager";
 
 Cu.import("resource://gre/modules/errUtils.js");
 Cu.import("resource://gre/modules/Services.jsm");
+Cu.import("resource://gre/modules/Preferences.jsm");
 Cu.import("resource:///modules/gloda/public.js");
 Cu.import("resource:///modules/gloda/index_msg.js");
 Cu.import("resource:///modules/StringBundle.js");
-Cu.import("resource://gre/modules/Preferences.jsm");
 
 /**
  * ReplyManagerCalendar

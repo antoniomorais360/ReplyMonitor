@@ -27,27 +27,27 @@ var gReplyManagerPane = {
     this.enableReplyManagerCheckbox =
       document.getElementById("enableReplyManagerCheckbox");
   	this.enableReplyManagerCheckbox.checked =
-  	  cal.getPrefSafe("extensions.replymanager.enabled", true);
+  	  Preferences.get("extensions.replymanager.enabled", true);
     
     this.enableCreateCalendarEventCheckbox =
       document.getElementById("toggleReplyManagerCreateEvent");
   	this.enableCreateCalendarEventCheckbox.checked =
-  	  cal.getPrefSafe("extensions.replymanager.create_calendar_event_enabled", true);
+  	  Preferences.get("extensions.replymanager.create_calendar_event_enabled", true);
     
     this.enableIncludeCCCheckbox =
       document.getElementById("toggleReplyManagerIncludeCC");
     this.enableIncludeCCCheckbox.checked =
-      cal.getPrefSafe("extensions.replymanager.includecc", true);
+      Preferences.get("extensions.replymanager.includecc", true);
 
     this.enableIncludeBCCCheckbox =
       document.getElementById("toggleReplyManagerIncludeBCC");
     this.enableIncludeBCCCheckbox.checked =
-      cal.getPrefSafe("extensions.replymanager.includebcc", true);
+      Preferences.get("extensions.replymanager.includebcc", true);
 
     this.reminderBoilerplateTextbox =
       document.getElementById("reminderBoilerplateTextbox");
   	this.reminderBoilerplateTextbox.value = 
-  	  cal.getPrefSafe("extensions.replymanager.boilerplate", "");
+  	  Preferences.get("extensions.replymanager.boilerplate", "");
       this.enableElements(this.enableReplyManagerCheckbox.checked);
   },
 

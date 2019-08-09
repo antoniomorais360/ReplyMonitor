@@ -2,14 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 Components.utils.import("resource://replymanager/modules/replyManagerUtils.jsm");
-Components.utils.import("resource://replymanager/modules/calUtils.jsm");
-Components.utils.import("resource:///modules/gloda/indexer.js");
+Components.utils.import("resource://calendar/modules/calUtils.jsm");
 Components.utils.import("resource://gre/modules/Preferences.jsm");
+Components.utils.import("resource:///modules/gloda/indexer.js");
 
 function onLoad() {
   // We need both ReplyManager and Gloda indexer enabled to make this feature work.
-  let enabled = Preferences.get("extensions.replymanager.enabled") &
-                GlodaIndexer.enabled;
+  let enabled = Preferences.get("extensions.replymanager.enabled") && GlodaIndexer.enabled;
   let replymanagerhbox = document.getElementById("replymanager-hbox");
   if (enabled) {
     replymanagerhbox.collapsed = false;
@@ -60,7 +59,7 @@ var replyManagerSendListener = {
 /**
  * reply manager compose state listener
  * In order to communicate with the send listener, instead of using a single
- * listener object, each time the send listener gets notified, a new compse
+ * listener object, each time the send listener gets notified, a new compose
  * state listener instance is created. And now no global is needed.
  */
 function replyManagerComposeStateListener(aMsgID) {

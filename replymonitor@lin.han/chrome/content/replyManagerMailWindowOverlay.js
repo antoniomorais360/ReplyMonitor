@@ -3,11 +3,10 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 Components.utils.import("resource://replymanager/modules/replyManagerUtils.jsm");
 Components.utils.import("resource://replymanager/modules/replyManagerCalendar.jsm");
-Components.utils.import("resource://replymanager/modules/calUtils.jsm");
 Components.utils.import("resource:///modules/gloda/public.js");
 Components.utils.import("resource:///modules/gloda/indexer.js");
 Components.utils.import("resource:///modules/mailServices.js");
-Components.utils.import("resource:///modules/Services.jsm");
+Components.utils.import("resource://gre/modules/Services.jsm");
 Components.utils.import("resource://gre/modules/Preferences.jsm");
 
 function onLoad() {
@@ -58,7 +57,7 @@ var replyManagerMailWindowPrefListener = {
   onLoad: function() {
     Services.prefs.addObserver("extensions.replymanager.enabled", this, false);
   },
-
+  
   observe: function(subject, topic, data) {
     if (topic != "nsPref:changed") {
       return;
@@ -249,6 +248,7 @@ function updateToolbarButtons(aMsgHdr) {
   if (aMsgHdr &&
       Preferences.get("extensions.replymanager.enabled", false) &&
       GlodaIndexer.enabled) {
+      console.log("Expect Reply: " + aMsgHdr.getStringProperty("ExpectReply"));
     if (ReplyManagerUtils.isHdrExpectReply(aMsgHdr)) {
       // This message is marked, we need to set the icon and label of the
       // "markExpectReplyButton" to the "Unmark" theme. and disable deadline
@@ -298,6 +298,10 @@ function toolbarMarkExpectReply() {
                       "chrome, dialog, modal", params);
     if (params.outDate) {
       ReplyManagerUtils.setExpectReplyForHdr(msgHdr, params.outDate);
+      console.log(msgHdr.recipients);
+      console.log(msgHdr.ccList);
+      console.log(msgHdr.bccList);
+      console.log("Is Message Indexed: " + Gloda.isMessageIndexed(msgHdr));
       // update the hdr view pane
       replyManagerHdrViewWidget.hdrViewDeployItems();
       updateToolbarButtons(msgHdr);

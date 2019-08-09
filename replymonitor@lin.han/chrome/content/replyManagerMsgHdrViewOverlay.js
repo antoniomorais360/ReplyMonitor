@@ -2,11 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 Components.utils.import("resource://replymanager/modules/replyManagerUtils.jsm");
-Components.utils.import("resource://replymanager/modules/calUtils.jsm");
 Components.utils.import("resource:///modules/StringBundle.js");
-Components.utils.import("resource:///modules/Services.jsm");
-Components.utils.import("resource:///modules/gloda/indexer.js");
+Components.utils.import("resource://gre/modules/Services.jsm");
 Components.utils.import("resource://gre/modules/Preferences.jsm");
+Components.utils.import("resource:///modules/gloda/indexer.js");
 
 var replyManagerHdrViewListener = {
   displayedMessage: null,
@@ -81,7 +80,7 @@ function hdrViewModifyExpectReply() {
 function showNotReplied() {
   let openDialogFunction = function(aGlodaMsg, aCollection, recipients) {
     let addressList = [];
-    for (let [_, recipient] of Iterator(recipients)) {
+    for (let [i, recipient] in Iterator(recipients)) {
       if (!recipient.didReply)
         addressList.push(recipient.address);
     }
@@ -228,8 +227,8 @@ var replyManagerHdrViewWidget = {
     onUnload: function()
     {
       Services.prefs.removeObserver("extensions.replymanager.enabled", this);
-      Services.prefs.removeObserver("extensions.replymanager.includecc", this, false);
-      Services.prefs.removeObserver("extensions.replymanager.includebcc", this, false);
+      Services.prefs.removeObserver("extensions.replymanager.includecc", this);
+      Services.prefs.removeObserver("extensions.replymanager.includebcc", this);
     },
 
     observe: function(subject, topic, data)
@@ -256,7 +255,7 @@ var replyManagerHdrViewWidget = {
               onItemsAdded: function() {},
               onItemsRemoved: function() {},
               onItemsModified: function() {},
-              onQueryCompleted: function(aCollection) {
+              onQueryCompleted: function(aCollection) {                
                 for (let msg of aCollection.items) {
                   ReplyManagerUtils.updateExpectReplyForHdr(msg.folderMessage);
                 }
