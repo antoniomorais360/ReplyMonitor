@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reply Monitor — Preferences</title>
+    <link rel="stylesheet" href="options.css">
+    <script type="module" src="options.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>Reply Monitor</h1>
+      <p>Configure how Reply Monitor behaves.</p>
+
+      <form id="settings-form">
+        <label class="checkbox">
+          <input id="enabled" name="enabled" type="checkbox">
+          Enable reply tracking
+        </label>
+
+        <label class="checkbox">
+          <input id="include-cc" name="includeCc" type="checkbox">
+          Include CC recipients
+        </label>
+
+        <label class="checkbox">
+          <input id="include-bcc" name="includeBcc" type="checkbox">
+          Include BCC recipients
+        </label>
+
+        <label for="reminder-template">Default reminder text</label>
+        <textarea id="reminder-template" name="reminderTemplate" rows="7" placeholder="Hello, I would like to follow up on the message below."></textarea>
+
+        <div class="actions">
+          <button type="submit">Save preferences</button>
+          <output id="status" aria-live="polite"></output>
+        </div>
+      </form>
+    </main>
+  </body>
+</html>

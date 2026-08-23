@@ -1,0 +1,34 @@
+:root {
+  color-scheme: light dark;
+  font: menu;
+}
+
+body {
+  margin: 0;
+  min-width: 18rem;
+}
+
+main {
+  display: grid;
+  gap: .75rem;
+  padding: 1rem;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+#message-subject {
+  overflow-wrap: anywhere;
+}
+
+form {
+  display: grid;
+  gap: .5rem;
+}
+
+.actions {
+  display: flex;
+  gap: .5rem;
+}

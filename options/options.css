@@ -1,0 +1,36 @@
+:root {
+  color-scheme: light dark;
+  font: menu;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  box-sizing: border-box;
+  margin: 0 auto;
+  max-width: 46rem;
+  padding: 2rem;
+}
+
+form {
+  display: grid;
+  gap: 1rem;
+}
+
+.checkbox {
+  display: flex;
+  gap: .5rem;
+}
+
+textarea {
+  font: inherit;
+  resize: vertical;
+}
+
+.actions {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+}
