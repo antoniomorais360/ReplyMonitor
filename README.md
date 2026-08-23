@@ -45,6 +45,10 @@ Reply Monitor stores tracking records only in Thunderbird's local extension
 storage. It does not send email contents, recipients, or tracking data to any
 external service.
 
+## License
+
+Reply Monitor is licensed under the [Mozilla Public License 2.0](LICENSE).
+
 ## For contributors
 
 ```powershell
