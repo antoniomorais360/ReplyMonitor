@@ -1,5 +1,5 @@
 param(
-    [string]$OutputPath = (Join-Path $PSScriptRoot "..\dist\reply-monitor-1.2.0.xpi")
+    [string]$OutputPath = (Join-Path $PSScriptRoot "..\dist\reply-monitor-1.3.0.xpi")
 )
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -14,7 +14,8 @@ if (Test-Path -LiteralPath $resolvedOutput) {
 $files = Get-ChildItem -LiteralPath $projectRoot -Recurse -File |
     Where-Object {
         $_.FullName -notmatch '\\.git\\' -and
-        $_.FullName -notmatch '\\dist\\'
+        $_.FullName -notmatch '\\dist\\' -and
+        $_.FullName -notmatch '\\tests\\'
     }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem

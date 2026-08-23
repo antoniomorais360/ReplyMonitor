@@ -39,7 +39,31 @@ This stage adds:
 - a `Reply received` state, reply sender, and reply timestamp stored locally;
 - dashboard totals that exclude replied messages from overdue and due-today counts.
 
-Reminder sending is intentionally out of scope until a later stage.
+## Stage 5 — Local reminders
+
+This stage adds:
+
+- a daily local notification for overdue replies, scheduled at 9:00 AM by default;
+- controls to enable the reminder, choose its local hour, and test notifications;
+- no automatic email sending and no transfer of message data outside Thunderbird.
+
+## Stage 6 — Release readiness
+
+This release provides a reproducible XPI build, static JavaScript and manifest
+validation, package-content checks, and a manual Thunderbird test checklist.
+
+Run the automated background test with:
+
+```powershell
+node .\tests\background.test.cjs
+```
+
+### Manual Thunderbird checklist
+
+1. Load the extension temporarily from `about:debugging`.
+2. Track a sent message and confirm it appears in the dashboard.
+3. Receive a reply to that message and confirm its state becomes `Reply received`.
+4. In Preferences, click `Test notification` and confirm the system notification appears.
 
 ## Build a test package
 

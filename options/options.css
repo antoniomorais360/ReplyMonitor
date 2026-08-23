@@ -29,6 +29,15 @@ textarea {
   resize: vertical;
 }
 
+fieldset {
+  display: grid;
+  gap: .75rem;
+}
+
+#reminder-hour {
+  max-width: 6rem;
+}
+
 .actions {
   align-items: center;
   display: flex;

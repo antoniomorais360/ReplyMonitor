@@ -3,12 +3,15 @@
 const STORAGE_KEY = "settings";
 const TRACKED_MESSAGES_KEY = "trackedMessages";
 const DEFAULT_DUE_DAYS = 7;
+const REMINDER_ALARM_NAME = "overdue-reply-reminder";
 
 const defaultSettings = Object.freeze({
   enabled: true,
   reminderTemplate: "",
   includeCc: true,
   includeBcc: false,
+  remindersEnabled: true,
+  reminderHour: 9,
 });
 
 async function ensureSettings() {
@@ -33,6 +36,13 @@ function todayAsIsoDate() {
   const month = String(today.getMonth() + 1).padStart(2, "0");
   const day = String(today.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function nextReminderTime(reminderHour) {
+  const next = new Date();
+  next.setHours(reminderHour, 0, 0, 0);
+  if (next <= new Date()) next.setDate(next.getDate() + 1);
+  return next.getTime();
 }
 
 async function getTrackedMessages() {
@@ -63,6 +73,39 @@ async function allMessagesInList(messageList) {
 
 async function saveTrackedMessages(trackedMessages) {
   await messenger.storage.local.set({ [TRACKED_MESSAGES_KEY]: trackedMessages });
+}
+
+async function scheduleReminderAlarm() {
+  const settings = await ensureSettings();
+  await messenger.alarms.clear(REMINDER_ALARM_NAME);
+  if (!settings.enabled || !settings.remindersEnabled) return;
+
+  await messenger.alarms.create(REMINDER_ALARM_NAME, {
+    when: nextReminderTime(settings.reminderHour),
+    periodInMinutes: 24 * 60,
+  });
+}
+
+async function showOverdueReminder({ force = false } = {}) {
+  const settings = await ensureSettings();
+  if (!force && (!settings.enabled || !settings.remindersEnabled)) return false;
+
+  const overdueMessages = (await getTrackedMessages()).filter(entry =>
+    entry.status !== "replied" && entry.dueDate < todayAsIsoDate()
+  );
+  if (overdueMessages.length === 0 && !force) return false;
+
+  const count = overdueMessages.length;
+  const message = count === 0
+    ? "There are no overdue replies right now."
+    : `${count} ${count === 1 ? "reply is" : "replies are"} overdue.`;
+  await messenger.notifications.create("reply-monitor-overdue", {
+    type: "basic",
+    iconUrl: messenger.runtime.getURL("icons/reply-monitor.svg"),
+    title: "Reply Monitor",
+    message,
+  });
+  return true;
 }
 
 async function createTrackedMessage(messageId, dueDate) {
@@ -187,11 +230,13 @@ async function createMenus() {
 messenger.runtime.onInstalled.addListener(() => {
   ensureSettings().catch(console.error);
   createMenus().catch(console.error);
+  scheduleReminderAlarm().catch(console.error);
 });
 
 messenger.runtime.onStartup.addListener(() => {
   ensureSettings().catch(console.error);
   createMenus().catch(console.error);
+  scheduleReminderAlarm().catch(console.error);
 });
 
 messenger.action.onClicked.addListener(async () => {
@@ -216,6 +261,20 @@ messenger.messages.onNewMailReceived.addListener((folder, messages) => {
   });
 });
 
+messenger.alarms.onAlarm.addListener(alarm => {
+  if (alarm.name === REMINDER_ALARM_NAME) {
+    showOverdueReminder().catch(error => {
+      console.error("Could not show overdue reply reminder.", error);
+    });
+  }
+});
+
+messenger.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === "local" && changes[STORAGE_KEY]) {
+    scheduleReminderAlarm().catch(console.error);
+  }
+});
+
 messenger.runtime.onMessage.addListener(async request => {
   if (request.type === "track-message") {
     return createTrackedMessage(request.messageId, request.dueDate);
@@ -237,6 +296,9 @@ messenger.runtime.onMessage.addListener(async request => {
   if (request.type === "remove-tracked-message") {
     await removeTrackedMessage(request.messageId);
     return null;
+  }
+  if (request.type === "test-reminder") {
+    return showOverdueReminder({ force: true });
   }
   return undefined;
 });
