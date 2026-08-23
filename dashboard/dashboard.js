@@ -114,6 +114,18 @@ document.querySelector("#preferences-button").addEventListener("click", () => {
   messenger.runtime.openOptionsPage();
 });
 
+document.querySelector("#scan-recent-replies-button").addEventListener("click", async () => {
+  try {
+    const result = await messenger.runtime.sendMessage({ type: "scan-recent-replies" });
+    const replyLabel = result.detected === 1 ? "reply" : "replies";
+    status.value = `Scan complete: ${result.detected} ${replyLabel} detected in ${result.scanned} recent messages.`;
+    await refreshDashboard();
+  } catch (error) {
+    console.error(error);
+    status.value = "Could not scan recent replies.";
+  }
+});
+
 refreshDashboard().catch(error => {
   console.error(error);
   status.value = "Could not load tracked messages.";

@@ -1,5 +1,5 @@
 param(
-    [string]$OutputPath = (Join-Path $PSScriptRoot "..\dist\reply-monitor-1.4.0.xpi")
+    [string]$OutputPath = (Join-Path $PSScriptRoot "..\dist\reply-monitor-1.5.0.xpi")
 )
 
 $projectRoot = Split-Path -Parent $PSScriptRoot

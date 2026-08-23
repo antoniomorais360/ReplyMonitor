@@ -22,6 +22,11 @@ main {
   justify-content: space-between;
 }
 
+.header-actions {
+  display: flex;
+  gap: .75rem;
+}
+
 h1,
 h2,
 p {
@@ -92,5 +97,6 @@ button.secondary {
   main { padding: 1rem; }
   .page-header,
   .controls { align-items: stretch; flex-direction: column; }
+  .header-actions { flex-direction: column; }
   .summary { gap: .5rem; }
 }

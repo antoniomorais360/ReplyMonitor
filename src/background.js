@@ -3,7 +3,9 @@
 const STORAGE_KEY = "settings";
 const TRACKED_MESSAGES_KEY = "trackedMessages";
 const DEFAULT_DUE_DAYS = 7;
+const RECENT_REPLY_SCAN_DAYS = 30;
 const REMINDER_ALARM_NAME = "overdue-reply-reminder";
+const OVERDUE_NOTIFICATION_ID = "reply-monitor-overdue";
 
 const defaultSettings = Object.freeze({
   enabled: true,
@@ -24,18 +26,21 @@ async function ensureSettings() {
   return defaultSettings;
 }
 
-function dateAfterDays(days) {
-  const date = new Date();
+function localIsoDate(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function dateAfterDays(days, startDate = new Date()) {
+  const date = new Date(startDate);
   date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return localIsoDate(date);
 }
 
 function todayAsIsoDate() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return localIsoDate();
 }
 
 function nextReminderTime(reminderHour) {
@@ -99,7 +104,7 @@ async function showOverdueReminder({ force = false } = {}) {
   const message = count === 0
     ? "There are no overdue replies right now."
     : `${count} ${count === 1 ? "reply is" : "replies are"} overdue.`;
-  await messenger.notifications.create("reply-monitor-overdue", {
+  await messenger.notifications.create(OVERDUE_NOTIFICATION_ID, {
     type: "basic",
     iconUrl: messenger.runtime.getURL("icons/reply-monitor.svg"),
     title: "Reply Monitor",
@@ -227,8 +232,11 @@ async function getDashboardData() {
 async function markRepliesReceived(messageList) {
   const trackedMessages = await getTrackedMessages();
   let hasChanges = false;
+  let scanned = 0;
+  let detected = 0;
 
   for (const receivedMessage of await allMessagesInList(messageList)) {
+    scanned += 1;
     const fullMessage = await messenger.messages.getFull(receivedMessage.id);
     const replyReferences = new Set(
       messageIdsFromHeaderValues([
@@ -250,11 +258,23 @@ async function markRepliesReceived(messageList) {
     trackedMessage.replyAuthor = receivedMessage.author;
     trackedMessage.replySubject = receivedMessage.subject;
     hasChanges = true;
+    detected += 1;
   }
 
   if (hasChanges) {
     await saveTrackedMessages(trackedMessages);
   }
+  return { scanned, detected };
+}
+
+async function scanRecentReplies() {
+  const fromDate = new Date();
+  fromDate.setDate(fromDate.getDate() - RECENT_REPLY_SCAN_DAYS);
+  const recentMessages = await messenger.messages.query({
+    fromDate,
+    fromMe: false,
+  });
+  return markRepliesReceived(recentMessages);
 }
 
 async function openDashboard() {
@@ -327,6 +347,14 @@ messenger.alarms.onAlarm.addListener(alarm => {
   }
 });
 
+messenger.notifications.onClicked.addListener(notificationId => {
+  if (notificationId === OVERDUE_NOTIFICATION_ID) {
+    openDashboard().catch(error => {
+      console.error("Could not open the dashboard from a notification.", error);
+    });
+  }
+});
+
 messenger.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "local" && changes[STORAGE_KEY]) {
     scheduleReminderAlarm().catch(console.error);
@@ -360,6 +388,9 @@ messenger.runtime.onMessage.addListener(async request => {
   }
   if (request.type === "test-reminder") {
     return showOverdueReminder({ force: true });
+  }
+  if (request.type === "scan-recent-replies") {
+    return scanRecentReplies();
   }
   return undefined;
 });

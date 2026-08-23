@@ -46,6 +46,10 @@ The **Include CC recipients**, **Include BCC recipients**, and **Default
 follow-up text** preferences control new follow-up drafts. They never cause a
 message to be sent automatically.
 
+To recover a reply received while Reply Monitor was not running, open the
+dashboard and select **Scan recent replies**. The scan checks received messages
+from the last 30 days and updates matching tracked items locally.
+
 ## Troubleshooting
 
 ### The toolbar button is missing
@@ -63,3 +67,5 @@ reply. Confirm that the original sent message was tracked after installation.
 
 Use **Test notification** in Preferences. If no notification appears, allow
 notifications for Thunderbird in your operating system settings.
+
+Clicking an overdue-reply notification opens the Reply Monitor dashboard.

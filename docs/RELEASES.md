@@ -1,5 +1,12 @@
 # Release notes
 
+## v1.5.0 — 2026-08-23
+
+- Open the dashboard when an overdue-reply notification is clicked.
+- Calculate due dates in local time, avoiding a date shift near midnight.
+- Add **Scan recent replies**, an on-demand local scan of received messages
+  from the last 30 days for replies received while the extension was inactive.
+
 ## v1.4.0 — 2026-08-23
 
 - Add **Compose follow-up** to awaiting-reply dashboard items.
