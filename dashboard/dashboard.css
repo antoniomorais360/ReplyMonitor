@@ -29,7 +29,8 @@ p {
 }
 
 .page-header p,
-.recipient {
+.recipient,
+.reply-details {
   margin-top: .35rem;
   opacity: .8;
   overflow-wrap: anywhere;
@@ -76,6 +77,7 @@ p {
 .due-state.overdue { color: #c1272d; }
 .due-state.today { color: #a05a00; }
 .due-state.upcoming { color: #26733c; }
+.due-state.replied { color: #26733c; }
 
 button,
 input {

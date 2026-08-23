@@ -41,6 +41,26 @@ async function getTrackedMessages() {
   return trackedMessages;
 }
 
+function normalizeMessageId(messageId) {
+  return messageId?.trim().toLowerCase() ?? null;
+}
+
+function messageIdsFromHeaderValues(headerValues = []) {
+  return headerValues.flatMap(value => value.match(/<[^>]+>/g) ?? []);
+}
+
+async function allMessagesInList(messageList) {
+  const messages = [];
+  let currentList = messageList;
+  while (currentList) {
+    messages.push(...currentList.messages);
+    currentList = currentList.id
+      ? await messenger.messages.continueList(currentList.id)
+      : null;
+  }
+  return messages;
+}
+
 async function saveTrackedMessages(trackedMessages) {
   await messenger.storage.local.set({ [TRACKED_MESSAGES_KEY]: trackedMessages });
 }
@@ -97,9 +117,43 @@ async function getDashboardData() {
   return {
     today: todayAsIsoDate(),
     items: trackedMessages.toSorted((first, second) =>
+      (first.status === "replied") - (second.status === "replied") ||
       first.dueDate.localeCompare(second.dueDate)
     ),
   };
+}
+
+async function markRepliesReceived(messageList) {
+  const trackedMessages = await getTrackedMessages();
+  let hasChanges = false;
+
+  for (const receivedMessage of await allMessagesInList(messageList)) {
+    const fullMessage = await messenger.messages.getFull(receivedMessage.id);
+    const replyReferences = new Set(
+      messageIdsFromHeaderValues([
+        ...(fullMessage.headers?.["in-reply-to"] ?? []),
+        ...(fullMessage.headers?.references ?? []),
+      ]).map(normalizeMessageId)
+    );
+    if (replyReferences.size === 0) continue;
+
+    const trackedMessage = trackedMessages.find(entry =>
+      entry.status !== "replied" &&
+      replyReferences.has(normalizeMessageId(entry.messageId))
+    );
+    if (!trackedMessage) continue;
+
+    trackedMessage.status = "replied";
+    trackedMessage.repliedAt = new Date(receivedMessage.date).toISOString();
+    trackedMessage.replyMessageLocalId = receivedMessage.id;
+    trackedMessage.replyAuthor = receivedMessage.author;
+    trackedMessage.replySubject = receivedMessage.subject;
+    hasChanges = true;
+  }
+
+  if (hasChanges) {
+    await saveTrackedMessages(trackedMessages);
+  }
 }
 
 async function openDashboard() {
@@ -154,6 +208,12 @@ messenger.menus.onClicked.addListener(async info => {
   if (info.menuItemId === "stop-tracking-reply") {
     await Promise.all(messageIds.map(removeTrackedMessage));
   }
+});
+
+messenger.messages.onNewMailReceived.addListener((folder, messages) => {
+  markRepliesReceived(messages).catch(error => {
+    console.error("Could not check a received message for a reply.", error);
+  });
 });
 
 messenger.runtime.onMessage.addListener(async request => {

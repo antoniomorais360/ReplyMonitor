@@ -30,8 +30,16 @@ This stage adds:
 - a due-date-sorted list of tracked messages;
 - actions to change a due date or stop tracking a message.
 
-Reply detection and reminder sending are intentionally out of scope until later
-stages.
+## Stage 4 — Reply detection
+
+This stage adds:
+
+- automatic detection of newly received replies by comparing `In-Reply-To` and
+  `References` headers with the tracked message's RFC `Message-ID`;
+- a `Reply received` state, reply sender, and reply timestamp stored locally;
+- dashboard totals that exclude replied messages from overdue and due-today counts.
+
+Reminder sending is intentionally out of scope until a later stage.
 
 ## Build a test package
 

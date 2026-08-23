@@ -8,8 +8,9 @@ const overdueCount = document.querySelector("#overdue-count");
 const todayCount = document.querySelector("#today-count");
 
 function dueState(dueDate, today) {
-  if (dueDate < today) return { label: "Overdue", className: "overdue" };
-  if (dueDate === today) return { label: "Due today", className: "today" };
+  if (dueDate.status === "replied") return { label: "Reply received", className: "replied" };
+  if (dueDate.dueDate < today) return { label: "Overdue", className: "overdue" };
+  if (dueDate.dueDate === today) return { label: "Due today", className: "today" };
   return { label: "Upcoming", className: "upcoming" };
 }
 
@@ -18,7 +19,7 @@ function recipientLabel(entry) {
 }
 
 function createMessageCard(entry, today) {
-  const state = dueState(entry.dueDate, today);
+  const state = dueState(entry, today);
   const card = document.createElement("article");
   card.className = "message-card";
   card.dataset.messageId = entry.localMessageId;
@@ -31,6 +32,12 @@ function createMessageCard(entry, today) {
   const stateLabel = document.createElement("span");
   stateLabel.className = `due-state ${state.className}`;
   stateLabel.textContent = state.label;
+
+  const replyDetails = document.createElement("p");
+  replyDetails.className = "reply-details";
+  if (entry.status === "replied") {
+    replyDetails.textContent = `Reply received from ${entry.replyAuthor || "an unknown sender"}.`;
+  }
 
   const controls = document.createElement("div");
   controls.className = "controls";
@@ -49,15 +56,17 @@ function createMessageCard(entry, today) {
   stopButton.textContent = "Stop tracking";
 
   controls.append(dueDate, saveButton, stopButton);
-  card.append(heading, recipient, stateLabel, controls);
+  card.append(heading, recipient, stateLabel);
+  if (entry.status === "replied") card.append(replyDetails);
+  card.append(controls);
   return card;
 }
 
 function renderDashboard({ items, today }) {
   list.replaceChildren();
   totalCount.textContent = items.length;
-  overdueCount.textContent = items.filter(item => item.dueDate < today).length;
-  todayCount.textContent = items.filter(item => item.dueDate === today).length;
+  overdueCount.textContent = items.filter(item => item.status !== "replied" && item.dueDate < today).length;
+  todayCount.textContent = items.filter(item => item.status !== "replied" && item.dueDate === today).length;
   emptyState.hidden = items.length > 0;
   items.forEach(item => list.append(createMessageCard(item, today)));
 }
