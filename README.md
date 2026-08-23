@@ -2,18 +2,12 @@
 
 A Thunderbird extension for tracking sent messages and expected replies.
 
-## Project status
-
-The historic implementation, which supports Thunderbird 52–54 only, is preserved
-in `replymonitor@lin.han/`. The modern implementation is developed on the
-`modernize/stage-1` branch.
-
 ## Stage 1 — MailExtension foundation
 
 This stage provides:
 
 - a Manifest V3 `manifest.json`, compatible with Thunderbird 140 ESR and later;
-- the historic extension ID: `replymanager@lin.han`;
+- the extension ID: `replymonitor@antoniomorais360.github.io`;
 - an HTML, CSS, and JavaScript preferences page;
 - local settings persistence;
 - a toolbar action that opens the preferences page.
@@ -27,8 +21,17 @@ This stage adds:
 - local persistence for tracking records, including the RFC `Message-ID` header when available;
 - an action to stop tracking a selected message.
 
-Reply detection, reminder sending, and the tracking dashboard are intentionally
-out of scope until later stages.
+## Stage 3 — Tracking dashboard
+
+This stage adds:
+
+- a dashboard opened from the Reply Monitor toolbar button;
+- counts for all tracked messages, overdue items, and items due today;
+- a due-date-sorted list of tracked messages;
+- actions to change a due date or stop tracking a message.
+
+Reply detection and reminder sending are intentionally out of scope until later
+stages.
 
 ## Build a test package
 

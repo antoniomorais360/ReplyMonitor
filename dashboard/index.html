@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Reply Monitor dashboard</title>
+    <link rel="stylesheet" href="dashboard.css">
+    <script type="module" src="dashboard.js"></script>
+  </head>
+  <body>
+    <main>
+      <header class="page-header">
+        <div>
+          <h1>Reply Monitor</h1>
+          <p>Messages waiting for a reply.</p>
+        </div>
+        <button id="preferences-button" type="button">Preferences</button>
+      </header>
+
+      <section class="summary" aria-label="Tracking summary">
+        <article><span id="total-count">0</span><small>Tracked</small></article>
+        <article><span id="overdue-count">0</span><small>Overdue</small></article>
+        <article><span id="today-count">0</span><small>Due today</small></article>
+      </section>
+
+      <p id="empty-state" hidden>No messages are currently being tracked.</p>
+      <section id="tracked-list" class="tracked-list" aria-label="Tracked messages"></section>
+      <output id="status" aria-live="polite"></output>
+    </main>
+  </body>
+</html>

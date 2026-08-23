@@ -1,0 +1,94 @@
+:root {
+  color-scheme: light dark;
+  font: menu;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  box-sizing: border-box;
+  margin: 0 auto;
+  max-width: 62rem;
+  padding: 2rem;
+}
+
+.page-header,
+.controls {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+.page-header p,
+.recipient {
+  margin-top: .35rem;
+  opacity: .8;
+  overflow-wrap: anywhere;
+}
+
+.summary {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 2rem 0;
+}
+
+.summary article,
+.message-card {
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: .5rem;
+  padding: 1rem;
+}
+
+.summary span {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.tracked-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.message-card {
+  display: grid;
+  gap: .75rem;
+}
+
+.message-card h2 {
+  font-size: 1.1rem;
+}
+
+.due-state {
+  font-weight: 700;
+}
+
+.due-state.overdue { color: #c1272d; }
+.due-state.today { color: #a05a00; }
+.due-state.upcoming { color: #26733c; }
+
+button,
+input {
+  font: inherit;
+}
+
+button.secondary {
+  background: transparent;
+}
+
+@media (max-width: 34rem) {
+  main { padding: 1rem; }
+  .page-header,
+  .controls { align-items: stretch; flex-direction: column; }
+  .summary { gap: .5rem; }
+}

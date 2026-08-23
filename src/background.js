@@ -27,6 +27,14 @@ function dateAfterDays(days) {
   return date.toISOString().slice(0, 10);
 }
 
+function todayAsIsoDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 async function getTrackedMessages() {
   const { [TRACKED_MESSAGES_KEY]: trackedMessages = [] } =
     await messenger.storage.local.get(TRACKED_MESSAGES_KEY);
@@ -72,6 +80,38 @@ async function removeTrackedMessage(messageId) {
   );
 }
 
+async function updateTrackedMessageDueDate(messageId, dueDate) {
+  const trackedMessages = await getTrackedMessages();
+  const entry = trackedMessages.find(item => item.localMessageId === messageId);
+  if (!entry) {
+    throw new Error("Tracked message not found.");
+  }
+
+  entry.dueDate = dueDate;
+  await saveTrackedMessages(trackedMessages);
+  return entry;
+}
+
+async function getDashboardData() {
+  const trackedMessages = await getTrackedMessages();
+  return {
+    today: todayAsIsoDate(),
+    items: trackedMessages.toSorted((first, second) =>
+      first.dueDate.localeCompare(second.dueDate)
+    ),
+  };
+}
+
+async function openDashboard() {
+  const dashboardUrl = messenger.runtime.getURL("dashboard/index.html");
+  const [existingTab] = await messenger.tabs.query({ url: dashboardUrl });
+  if (existingTab) {
+    await messenger.tabs.update(existingTab.id, { active: true });
+    return;
+  }
+  await messenger.tabs.create({ url: dashboardUrl });
+}
+
 async function selectedMessageIds(messageList) {
   return (messageList?.messages ?? []).map(message => message.id);
 }
@@ -101,7 +141,7 @@ messenger.runtime.onStartup.addListener(() => {
 });
 
 messenger.action.onClicked.addListener(async () => {
-  await messenger.runtime.openOptionsPage();
+  await openDashboard();
 });
 
 messenger.menus.onClicked.addListener(async info => {
@@ -127,6 +167,16 @@ messenger.runtime.onMessage.addListener(async request => {
   if (request.type === "get-tracked-message") {
     const trackedMessages = await getTrackedMessages();
     return trackedMessages.find(entry => entry.localMessageId === request.messageId) ?? null;
+  }
+  if (request.type === "get-dashboard-data") {
+    return getDashboardData();
+  }
+  if (request.type === "update-due-date") {
+    return updateTrackedMessageDueDate(request.messageId, request.dueDate);
+  }
+  if (request.type === "remove-tracked-message") {
+    await removeTrackedMessage(request.messageId);
+    return null;
   }
   return undefined;
 });
