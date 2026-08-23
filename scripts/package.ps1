@@ -13,9 +13,9 @@ if (Test-Path -LiteralPath $resolvedOutput) {
 
 $files = Get-ChildItem -LiteralPath $projectRoot -Recurse -File |
     Where-Object {
-        $_.FullName -notmatch '\\.git\\' -and
-        $_.FullName -notmatch '\\dist\\' -and
-        $_.FullName -notmatch '\\tests\\'
+        $relativePath = [System.IO.Path]::GetRelativePath($projectRoot, $_.FullName).Replace('\', '/')
+        $relativePath -eq 'manifest.json' -or
+        $relativePath -match '^(src|popup|options|dashboard|icons)/'
     }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem

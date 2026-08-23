@@ -1,78 +1,61 @@
 # Reply Monitor
 
-A Thunderbird extension for tracking sent messages and expected replies.
+Reply Monitor is a Thunderbird MailExtension that helps you keep track of sent
+messages that need a reply.
 
-## Stage 1 — MailExtension foundation
+> **Preview release:** Reply Monitor is currently distributed as an unsigned
+> development build. Use the temporary-install workflow for reliable testing.
+> Permanent installation from an `.xpi` may require a Mozilla-signed package,
+> depending on your Thunderbird configuration.
 
-This stage provides:
+## Features
 
-- a Manifest V3 `manifest.json`, compatible with Thunderbird 140 ESR and later;
-- the extension ID: `replymonitor@antoniomorais360.github.io`;
-- an HTML, CSS, and JavaScript preferences page;
-- local settings persistence;
-- a toolbar action that opens the preferences page.
+- Track one or more sent messages with a due date.
+- See tracked messages in a dashboard with overdue and due-today counts.
+- Update a due date or stop tracking a message.
+- Detect incoming replies through standard email reply headers.
+- Receive a daily local notification for overdue replies.
+- Keep all tracking data in Thunderbird local storage; no message data is sent
+  to a third-party service.
 
-## Stage 2 — Track and untrack messages
+## Compatibility
 
-This stage adds:
+- Thunderbird 140 ESR or later.
+- Desktop Thunderbird on Windows, macOS, or Linux.
 
-- a message-list context menu to track selected messages with a seven-day due date;
-- a message-display toolbar popup to choose a due date;
-- local persistence for tracking records, including the RFC `Message-ID` header when available;
-- an action to stop tracking a selected message.
+## Get Reply Monitor
 
-## Stage 3 — Tracking dashboard
+Download the latest `.xpi` from the [GitHub Releases page](https://github.com/antoniomorais360/ReplyMonitor/releases).
 
-This stage adds:
+For installation instructions, testing steps, and troubleshooting, see the
+[Installation guide](docs/INSTALLATION.md).
 
-- a dashboard opened from the Reply Monitor toolbar button;
-- counts for all tracked messages, overdue items, and items due today;
-- a due-date-sorted list of tracked messages;
-- actions to change a due date or stop tracking a message.
+## Quick start
 
-## Stage 4 — Reply detection
+1. Open a sent message in Thunderbird.
+2. Click the **Track reply** button in the message toolbar, choose a due date,
+   and save.
+3. Open the Reply Monitor toolbar button to see the dashboard.
+4. When the recipient replies, the item is marked **Reply received**.
+5. Open **Preferences** from the dashboard to configure daily reminders.
 
-This stage adds:
+## Privacy
 
-- automatic detection of newly received replies by comparing `In-Reply-To` and
-  `References` headers with the tracked message's RFC `Message-ID`;
-- a `Reply received` state, reply sender, and reply timestamp stored locally;
-- dashboard totals that exclude replied messages from overdue and due-today counts.
+Reply Monitor stores tracking records only in Thunderbird's local extension
+storage. It does not send email contents, recipients, or tracking data to any
+external service.
 
-## Stage 5 — Local reminders
-
-This stage adds:
-
-- a daily local notification for overdue replies, scheduled at 9:00 AM by default;
-- controls to enable the reminder, choose its local hour, and test notifications;
-- no automatic email sending and no transfer of message data outside Thunderbird.
-
-## Stage 6 — Release readiness
-
-This release provides a reproducible XPI build, static JavaScript and manifest
-validation, package-content checks, and a manual Thunderbird test checklist.
-
-Run the automated background test with:
+## For contributors
 
 ```powershell
 node .\tests\background.test.cjs
-```
-
-### Manual Thunderbird checklist
-
-1. Load the extension temporarily from `about:debugging`.
-2. Track a sent message and confirm it appears in the dashboard.
-3. Receive a reply to that message and confirm its state becomes `Reply received`.
-4. In Preferences, click `Test notification` and confirm the system notification appears.
-
-## Build a test package
-
-From the repository root in PowerShell:
-
-```powershell
 .\scripts\package.ps1
 ```
 
-The `.xpi` file is written to `dist/`. To test without signing, open
-`about:debugging#/runtime/this-thunderbird` in Thunderbird and temporarily load
-the `manifest.json` file.
+The generated XPI is written to `dist/`.
+
+## Status
+
+The MVP stages are complete: foundation, tracking, dashboard, reply detection,
+local reminders, and release checks. See [release notes](docs/RELEASES.md) for
+version details.
