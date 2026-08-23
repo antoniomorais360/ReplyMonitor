@@ -20,6 +20,8 @@ messages that need a reply.
   arrived while the extension was inactive.
 - Open a prefilled follow-up draft from an awaiting-reply dashboard item; Reply
   Monitor never sends the message automatically.
+- Preserve tracking records across Thunderbird restarts and message moves by
+  using extension-owned record identifiers.
 - Keep all tracking data in Thunderbird local storage; no message data is sent
   to a third-party service.
 
@@ -61,6 +63,7 @@ Reply Monitor is licensed under the [Mozilla Public License 2.0](LICENSE).
 
 ```powershell
 node .\tests\background.test.cjs
+node .\tests\popup.test.cjs
 .\scripts\package.ps1
 ```
 
@@ -68,6 +71,5 @@ The generated XPI is written to `dist/`.
 
 ## Status
 
-The MVP stages are complete: foundation, tracking, dashboard, reply detection,
-local reminders, and release checks. See [release notes](docs/RELEASES.md) for
-version details.
+The MVP stages and the first reliability-hardening pass are complete. See
+[release notes](docs/RELEASES.md) for version details.

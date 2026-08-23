@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-package:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check JavaScript syntax
+        shell: pwsh
+        run: |
+          node --check src/background.js
+          node --check popup/track.js
+          node --check dashboard/dashboard.js
+          node --check options/options.js
+
+      - name: Run tests
+        shell: pwsh
+        run: |
+          node tests/background.test.cjs
+          node tests/popup.test.cjs
+
+      - name: Build XPI
+        shell: pwsh
+        run: ./scripts/package.ps1
+
+      - name: Verify packaged version
+        shell: pwsh
+        run: |
+          $manifest = Get-Content manifest.json -Raw | ConvertFrom-Json
+          $packagePath = "dist/reply-monitor-$($manifest.version).xpi"
+          if (-not (Test-Path -LiteralPath $packagePath)) {
+            throw "Expected package was not created: $packagePath"
+          }
+
+      - name: Upload XPI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: reply-monitor-xpi
+          path: dist/*.xpi

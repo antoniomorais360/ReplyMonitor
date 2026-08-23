@@ -6,11 +6,15 @@ const dueDate = document.querySelector("#due-date");
 const status = document.querySelector("#status");
 const untrackButton = document.querySelector("#untrack-button");
 let currentMessage;
+let currentTrackingId;
 
 function defaultDueDate() {
   const date = new Date();
   date.setDate(date.getDate() + 7);
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 async function getDisplayedMessage() {
@@ -33,6 +37,7 @@ async function initialize() {
     messageId: currentMessage.id,
   });
   if (trackedMessage) {
+    currentTrackingId = trackedMessage.trackingId;
     dueDate.value = trackedMessage.dueDate;
   } else {
     untrackButton.hidden = true;
@@ -42,11 +47,12 @@ async function initialize() {
 
 form.addEventListener("submit", async event => {
   event.preventDefault();
-  await messenger.runtime.sendMessage({
+  const trackedMessage = await messenger.runtime.sendMessage({
     type: "track-message",
     messageId: currentMessage.id,
     dueDate: dueDate.value,
   });
+  currentTrackingId = trackedMessage.trackingId;
   status.value = "Reply tracking is active.";
   untrackButton.hidden = false;
 });
@@ -54,10 +60,11 @@ form.addEventListener("submit", async event => {
 untrackButton.addEventListener("click", async () => {
   await messenger.runtime.sendMessage({
     type: "untrack-message",
-    messageId: currentMessage.id,
+    trackingId: currentTrackingId,
   });
   status.value = "Reply tracking stopped.";
   untrackButton.hidden = true;
+  currentTrackingId = undefined;
 });
 
 initialize().catch(error => {

@@ -8,7 +8,6 @@ const REMINDER_ALARM_NAME = "overdue-reply-reminder";
 const OVERDUE_NOTIFICATION_ID = "reply-monitor-overdue";
 
 const defaultSettings = Object.freeze({
-  enabled: true,
   reminderTemplate: "",
   includeCc: true,
   includeBcc: false,
@@ -16,10 +15,39 @@ const defaultSettings = Object.freeze({
   reminderHour: 9,
 });
 
+let trackedMessagesMutationQueue = Promise.resolve();
+let recentReplyScanPromise = null;
+const followUpComposeTabs = new Map();
+
+function normalizeSettings(settings = {}) {
+  const reminderHour = Number(settings.reminderHour);
+  return {
+    reminderTemplate: typeof settings.reminderTemplate === "string"
+      ? settings.reminderTemplate
+      : defaultSettings.reminderTemplate,
+    includeCc: typeof settings.includeCc === "boolean"
+      ? settings.includeCc
+      : defaultSettings.includeCc,
+    includeBcc: typeof settings.includeBcc === "boolean"
+      ? settings.includeBcc
+      : defaultSettings.includeBcc,
+    remindersEnabled: typeof settings.remindersEnabled === "boolean"
+      ? settings.remindersEnabled
+      : defaultSettings.remindersEnabled,
+    reminderHour: Number.isInteger(reminderHour) && reminderHour >= 0 && reminderHour <= 23
+      ? reminderHour
+      : defaultSettings.reminderHour,
+  };
+}
+
 async function ensureSettings() {
   const { [STORAGE_KEY]: settings } = await messenger.storage.local.get(STORAGE_KEY);
   if (settings) {
-    return { ...defaultSettings, ...settings };
+    const normalizedSettings = normalizeSettings(settings);
+    if (JSON.stringify(settings) !== JSON.stringify(normalizedSettings)) {
+      await messenger.storage.local.set({ [STORAGE_KEY]: normalizedSettings });
+    }
+    return normalizedSettings;
   }
 
   await messenger.storage.local.set({ [STORAGE_KEY]: defaultSettings });
@@ -50,10 +78,27 @@ function nextReminderTime(reminderHour) {
   return next.getTime();
 }
 
-async function getTrackedMessages() {
+function createTrackingId() {
+  return crypto.randomUUID();
+}
+
+async function loadTrackedMessages() {
   const { [TRACKED_MESSAGES_KEY]: trackedMessages = [] } =
     await messenger.storage.local.get(TRACKED_MESSAGES_KEY);
-  return trackedMessages;
+  let migrated = false;
+  const items = trackedMessages.map(entry => {
+    if (entry.trackingId) return entry;
+    migrated = true;
+    return { ...entry, trackingId: createTrackingId() };
+  });
+  return { items, migrated };
+}
+
+async function getTrackedMessages() {
+  await trackedMessagesMutationQueue;
+  const { items, migrated } = await loadTrackedMessages();
+  if (!migrated) return items;
+  return mutateTrackedMessages(trackedMessages => trackedMessages);
 }
 
 function normalizeMessageId(messageId) {
@@ -80,10 +125,34 @@ async function saveTrackedMessages(trackedMessages) {
   await messenger.storage.local.set({ [TRACKED_MESSAGES_KEY]: trackedMessages });
 }
 
+function mutateTrackedMessages(mutator) {
+  const operation = trackedMessagesMutationQueue.then(async () => {
+    const { items } = await loadTrackedMessages();
+    const result = await mutator(items);
+    await saveTrackedMessages(items);
+    return result;
+  });
+  trackedMessagesMutationQueue = operation.catch(() => undefined);
+  return operation;
+}
+
+function isValidIsoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value ?? "")) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day;
+}
+
+function assertValidDueDate(dueDate) {
+  if (!isValidIsoDate(dueDate)) throw new Error("A valid due date is required.");
+}
+
 async function scheduleReminderAlarm() {
   const settings = await ensureSettings();
   await messenger.alarms.clear(REMINDER_ALARM_NAME);
-  if (!settings.enabled || !settings.remindersEnabled) return;
+  if (!settings.remindersEnabled) return;
 
   await messenger.alarms.create(REMINDER_ALARM_NAME, {
     when: nextReminderTime(settings.reminderHour),
@@ -93,7 +162,7 @@ async function scheduleReminderAlarm() {
 
 async function showOverdueReminder({ force = false } = {}) {
   const settings = await ensureSettings();
-  if (!force && (!settings.enabled || !settings.remindersEnabled)) return false;
+  if (!force && !settings.remindersEnabled) return false;
 
   const overdueMessages = (await getTrackedMessages()).filter(entry =>
     entry.status !== "replied" && entry.dueDate < todayAsIsoDate()
@@ -114,33 +183,36 @@ async function showOverdueReminder({ force = false } = {}) {
 }
 
 async function createTrackedMessage(messageId, dueDate) {
+  assertValidDueDate(dueDate);
   const message = await messenger.messages.get(messageId);
   const fullMessage = await messenger.messages.getFull(messageId);
   const messageHeaderId = fullMessage.headers?.["message-id"]?.[0] ?? null;
-  const trackedMessages = await getTrackedMessages();
-  const existingIndex = trackedMessages.findIndex(entry =>
-    entry.messageId === messageHeaderId || entry.localMessageId === messageId
-  );
-  const entry = {
-    localMessageId: messageId,
-    messageId: messageHeaderId,
-    subject: message.subject,
-    author: message.author,
-    recipients: message.recipients,
-    ccRecipients: message.ccList ?? [],
-    bccRecipients: message.bccList ?? [],
-    dueDate,
-    createdAt: new Date().toISOString(),
-    status: "awaiting-reply",
-  };
+  return mutateTrackedMessages(trackedMessages => {
+    const existingIndex = trackedMessages.findIndex(entry =>
+      (messageHeaderId && entry.messageId === messageHeaderId) ||
+      (messageHeaderId && entry.messageIds?.includes(messageHeaderId)) ||
+      entry.localMessageId === messageId
+    );
+    const existingEntry = existingIndex >= 0 ? trackedMessages[existingIndex] : null;
+    const entry = {
+      trackingId: existingEntry?.trackingId ?? createTrackingId(),
+      localMessageId: messageId,
+      messageId: existingEntry?.messageId ?? messageHeaderId,
+      messageIds: existingEntry?.messageIds ?? [],
+      subject: message.subject,
+      author: message.author,
+      recipients: message.recipients,
+      ccRecipients: message.ccList ?? [],
+      bccRecipients: message.bccList ?? [],
+      dueDate,
+      createdAt: existingEntry?.createdAt ?? new Date().toISOString(),
+      status: "awaiting-reply",
+    };
 
-  if (existingIndex >= 0) {
-    trackedMessages[existingIndex] = { ...trackedMessages[existingIndex], ...entry };
-  } else {
-    trackedMessages.push(entry);
-  }
-  await saveTrackedMessages(trackedMessages);
-  return entry;
+    if (existingIndex >= 0) trackedMessages[existingIndex] = entry;
+    else trackedMessages.push(entry);
+    return entry;
+  });
 }
 
 function uniqueRecipients(...recipientLists) {
@@ -162,16 +234,29 @@ function followUpBody(template, subject) {
   return `${intro}\n\nRegarding: ${subject || "(No subject)"}\n\nBest regards,`;
 }
 
-async function composeFollowUp(messageId) {
+function escapeHtml(value) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function plainTextAsHtml(value) {
+  return escapeHtml(value).replaceAll("\n", "<br>");
+}
+
+async function composeFollowUp(trackingId) {
   const trackedMessages = await getTrackedMessages();
-  const entry = trackedMessages.find(item => item.localMessageId === messageId);
+  const entry = trackedMessages.find(item => item.trackingId === trackingId);
   if (!entry) throw new Error("Tracked message not found.");
   if (entry.status === "replied") throw new Error("This message already has a recorded reply.");
 
   const settings = await ensureSettings();
   let message = null;
   try {
-    message = await messenger.messages.get(messageId);
+    message = await messenger.messages.get(entry.localMessageId);
   } catch (error) {
     console.warn("Could not read the original message; using stored recipients.", error);
   }
@@ -189,33 +274,58 @@ async function composeFollowUp(messageId) {
   const details = {
     to,
     subject: followUpSubject(entry.subject),
-    plainTextBody: followUpBody(settings.reminderTemplate, entry.subject),
-    isPlainText: true,
   };
   if (cc.length > 0) details.cc = cc;
   if (bcc.length > 0) details.bcc = bcc;
 
   const tab = await messenger.compose.beginNew(undefined, details);
+  const currentDetails = await messenger.compose.getComposeDetails(tab.id);
+  const followUpText = followUpBody(settings.reminderTemplate, entry.subject);
+  if (currentDetails.isPlainText) {
+    await messenger.compose.setComposeDetails(tab.id, {
+      plainTextBody: `${followUpText}\n\n${currentDetails.plainTextBody ?? ""}`,
+    });
+  } else {
+    await messenger.compose.setComposeDetails(tab.id, {
+      body: `${plainTextAsHtml(followUpText)}<br><br>${currentDetails.body ?? ""}`,
+    });
+  }
+  followUpComposeTabs.set(tab.id, trackingId);
   return { tabId: tab.id };
 }
 
-async function removeTrackedMessage(messageId) {
-  const trackedMessages = await getTrackedMessages();
-  await saveTrackedMessages(
-    trackedMessages.filter(entry => entry.localMessageId !== messageId)
-  );
+async function removeTrackedMessage(trackingId) {
+  return mutateTrackedMessages(trackedMessages => {
+    const index = trackedMessages.findIndex(entry => entry.trackingId === trackingId);
+    if (index >= 0) trackedMessages.splice(index, 1);
+    return null;
+  });
 }
 
-async function updateTrackedMessageDueDate(messageId, dueDate) {
-  const trackedMessages = await getTrackedMessages();
-  const entry = trackedMessages.find(item => item.localMessageId === messageId);
-  if (!entry) {
-    throw new Error("Tracked message not found.");
-  }
+async function updateTrackedMessageDueDate(trackingId, dueDate) {
+  assertValidDueDate(dueDate);
+  return mutateTrackedMessages(trackedMessages => {
+    const entry = trackedMessages.find(item => item.trackingId === trackingId);
+    if (!entry) throw new Error("Tracked message not found.");
+    entry.dueDate = dueDate;
+    return entry;
+  });
+}
 
-  entry.dueDate = dueDate;
-  await saveTrackedMessages(trackedMessages);
-  return entry;
+async function getTrackedMessageForLocalMessage(messageId) {
+  const fullMessage = await messenger.messages.getFull(messageId);
+  const messageHeaderId = fullMessage.headers?.["message-id"]?.[0] ?? null;
+  const trackedMessages = await getTrackedMessages();
+  return trackedMessages.find(entry =>
+    entry.localMessageId === messageId ||
+    (messageHeaderId && entry.messageId === messageHeaderId) ||
+    (messageHeaderId && entry.messageIds?.includes(messageHeaderId))
+  ) ?? null;
+}
+
+async function removeTrackedMessageForLocalMessage(messageId) {
+  const entry = await getTrackedMessageForLocalMessage(messageId);
+  if (entry) await removeTrackedMessage(entry.trackingId);
 }
 
 async function getDashboardData() {
@@ -230,10 +340,8 @@ async function getDashboardData() {
 }
 
 async function markRepliesReceived(messageList) {
-  const trackedMessages = await getTrackedMessages();
-  let hasChanges = false;
   let scanned = 0;
-  let detected = 0;
+  const receivedReplies = [];
 
   for (const receivedMessage of await allMessagesInList(messageList)) {
     scanned += 1;
@@ -245,36 +353,46 @@ async function markRepliesReceived(messageList) {
       ]).map(normalizeMessageId)
     );
     if (replyReferences.size === 0) continue;
-
-    const trackedMessage = trackedMessages.find(entry =>
-      entry.status !== "replied" &&
-      replyReferences.has(normalizeMessageId(entry.messageId))
-    );
-    if (!trackedMessage) continue;
-
-    trackedMessage.status = "replied";
-    trackedMessage.repliedAt = new Date(receivedMessage.date).toISOString();
-    trackedMessage.replyMessageLocalId = receivedMessage.id;
-    trackedMessage.replyAuthor = receivedMessage.author;
-    trackedMessage.replySubject = receivedMessage.subject;
-    hasChanges = true;
-    detected += 1;
+    receivedReplies.push({ receivedMessage, replyReferences });
   }
 
-  if (hasChanges) {
-    await saveTrackedMessages(trackedMessages);
-  }
-  return { scanned, detected };
+  return mutateTrackedMessages(trackedMessages => {
+    let detected = 0;
+    for (const { receivedMessage, replyReferences } of receivedReplies) {
+      for (const trackedMessage of trackedMessages) {
+        const trackedIds = [
+          trackedMessage.messageId,
+          ...(trackedMessage.messageIds ?? []),
+        ].map(normalizeMessageId).filter(Boolean);
+        if (trackedMessage.status === "replied" ||
+            !trackedIds.some(messageId => replyReferences.has(messageId))) continue;
+
+        trackedMessage.status = "replied";
+        trackedMessage.repliedAt = new Date(receivedMessage.date).toISOString();
+        trackedMessage.replyMessageLocalId = receivedMessage.id;
+        trackedMessage.replyAuthor = receivedMessage.author;
+        trackedMessage.replySubject = receivedMessage.subject;
+        detected += 1;
+      }
+    }
+    return { scanned, detected };
+  });
 }
 
-async function scanRecentReplies() {
-  const fromDate = new Date();
-  fromDate.setDate(fromDate.getDate() - RECENT_REPLY_SCAN_DAYS);
-  const recentMessages = await messenger.messages.query({
-    fromDate,
-    fromMe: false,
+function scanRecentReplies() {
+  if (recentReplyScanPromise) return recentReplyScanPromise;
+  recentReplyScanPromise = (async () => {
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - RECENT_REPLY_SCAN_DAYS);
+    const recentMessages = await messenger.messages.query({
+      fromDate,
+      fromMe: false,
+    });
+    return markRepliesReceived(recentMessages);
+  })().finally(() => {
+    recentReplyScanPromise = null;
   });
-  return markRepliesReceived(recentMessages);
+  return recentReplyScanPromise;
 }
 
 async function openDashboard() {
@@ -329,7 +447,7 @@ messenger.menus.onClicked.addListener(async info => {
     ));
   }
   if (info.menuItemId === "stop-tracking-reply") {
-    await Promise.all(messageIds.map(removeTrackedMessage));
+    await Promise.all(messageIds.map(removeTrackedMessageForLocalMessage));
   }
 });
 
@@ -355,6 +473,28 @@ messenger.notifications.onClicked.addListener(notificationId => {
   }
 });
 
+messenger.compose.onAfterSend.addListener((tab, sendInfo) => {
+  const trackingId = followUpComposeTabs.get(tab.id);
+  if (!trackingId) return;
+  followUpComposeTabs.delete(tab.id);
+  if (sendInfo.error || !sendInfo.headerMessageId) return;
+
+  mutateTrackedMessages(trackedMessages => {
+    const entry = trackedMessages.find(item => item.trackingId === trackingId);
+    if (!entry) return null;
+    entry.messageIds ??= [];
+    if (!entry.messageIds.includes(sendInfo.headerMessageId)) {
+      entry.messageIds.push(sendInfo.headerMessageId);
+    }
+    if (sendInfo.messages?.[0]?.id) {
+      entry.localMessageId = sendInfo.messages[0].id;
+    }
+    return entry;
+  }).catch(error => {
+    console.error("Could not update follow-up reply tracking after send.", error);
+  });
+});
+
 messenger.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "local" && changes[STORAGE_KEY]) {
     scheduleReminderAlarm().catch(console.error);
@@ -366,25 +506,24 @@ messenger.runtime.onMessage.addListener(async request => {
     return createTrackedMessage(request.messageId, request.dueDate);
   }
   if (request.type === "untrack-message") {
-    await removeTrackedMessage(request.messageId);
+    await removeTrackedMessage(request.trackingId);
     return null;
   }
   if (request.type === "get-tracked-message") {
-    const trackedMessages = await getTrackedMessages();
-    return trackedMessages.find(entry => entry.localMessageId === request.messageId) ?? null;
+    return getTrackedMessageForLocalMessage(request.messageId);
   }
   if (request.type === "get-dashboard-data") {
     return getDashboardData();
   }
   if (request.type === "update-due-date") {
-    return updateTrackedMessageDueDate(request.messageId, request.dueDate);
+    return updateTrackedMessageDueDate(request.trackingId, request.dueDate);
   }
   if (request.type === "remove-tracked-message") {
-    await removeTrackedMessage(request.messageId);
+    await removeTrackedMessage(request.trackingId);
     return null;
   }
   if (request.type === "compose-follow-up") {
-    return composeFollowUp(request.messageId);
+    return composeFollowUp(request.trackingId);
   }
   if (request.type === "test-reminder") {
     return showOverdueReminder({ force: true });

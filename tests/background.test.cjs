@@ -7,8 +7,10 @@ process.env.TZ = "America/Manaus";
 const storage = new Map();
 const notifications = [];
 const composeCalls = [];
+const composeUpdates = [];
 const createdTabs = [];
 const recentReplyQueries = [];
+let generatedTrackingId = 0;
 
 function event() {
   const listeners = [];
@@ -22,21 +24,26 @@ const messenger = {
   storage: {
     local: {
       async get(key) {
-        if (typeof key === "string") return { [key]: storage.get(key) };
-        return Object.fromEntries(Object.keys(key).map(name => [name, storage.get(name) ?? key[name]]));
+        if (typeof key === "string") {
+          return { [key]: structuredClone(storage.get(key)) };
+        }
+        return Object.fromEntries(Object.keys(key).map(name => [
+          name,
+          structuredClone(storage.get(name) ?? key[name]),
+        ]));
       },
       async set(values) {
-        Object.entries(values).forEach(([key, value]) => storage.set(key, value));
+        Object.entries(values).forEach(([key, value]) => storage.set(key, structuredClone(value)));
       },
     },
     onChanged: event(),
   },
   messages: {
     async get(messageId) {
-      if (messageId === 4) {
+      if ([4, 8, 9, 10, 11].includes(messageId)) {
         return {
-          subject: "Project update",
-          recipients: ["recipient@example.test"],
+          subject: messageId === 4 ? "Project update" : `Message ${messageId}`,
+          recipients: [`recipient${messageId}@example.test`],
           ccList: ["cc@example.test"],
           bccList: ["bcc@example.test"],
         };
@@ -49,6 +56,9 @@ const messenger = {
       }
       if (messageId === 7) {
         return { headers: { references: ["<scan-target@example.test>"] } };
+      }
+      if (messageId === 8 || messageId === 9) {
+        return { headers: { "message-id": [`<message-${messageId}@example.test>`] } };
       }
       return { headers: {} };
     },
@@ -88,10 +98,18 @@ const messenger = {
       composeCalls.push({ messageId, details });
       return { id: 41 };
     },
+    async getComposeDetails() {
+      return { isPlainText: false, body: "<div>Antonio Morais<br></div>" };
+    },
+    async setComposeDetails(tabId, details) {
+      composeUpdates.push({ tabId, details });
+    },
+    onAfterSend: event(),
   },
 };
 
-const context = vm.createContext({ console, messenger, Date, Set });
+const crypto = { randomUUID: () => `tracking-${++generatedTrackingId}` };
+const context = vm.createContext({ console, crypto, messenger, Date, Map, Set });
 vm.runInContext(fs.readFileSync("src/background.js", "utf8"), context);
 
 const parseMessageIds = vm.runInContext("messageIdsFromHeaderValues", context);
@@ -113,6 +131,9 @@ const showOverdueReminder = vm.runInContext("showOverdueReminder", context);
 const composeFollowUp = vm.runInContext("composeFollowUp", context);
 const dateAfterDays = vm.runInContext("dateAfterDays", context);
 const scanRecentReplies = vm.runInContext("scanRecentReplies", context);
+const createTrackedMessage = vm.runInContext("createTrackedMessage", context);
+const getTrackedMessages = vm.runInContext("getTrackedMessages", context);
+const updateTrackedMessageDueDate = vm.runInContext("updateTrackedMessageDueDate", context);
 
 (async () => {
   await markRepliesReceived({
@@ -123,6 +144,7 @@ const scanRecentReplies = vm.runInContext("scanRecentReplies", context);
   assert.equal(storage.get("trackedMessages")[0].replyAuthor, "Reply sender");
 
   storage.set("trackedMessages", [{
+    trackingId: "overdue-tracking",
     localMessageId: 3,
     messageId: "<overdue@example.test>",
     dueDate: "2000-01-01",
@@ -147,6 +169,7 @@ const scanRecentReplies = vm.runInContext("scanRecentReplies", context);
     includeBcc: false,
   });
   storage.set("trackedMessages", [{
+    trackingId: "follow-up-tracking",
     localMessageId: 4,
     messageId: "<follow-up@example.test>",
     subject: "Project update",
@@ -156,20 +179,35 @@ const scanRecentReplies = vm.runInContext("scanRecentReplies", context);
     dueDate: "2026-08-30",
     status: "awaiting-reply",
   }]);
-  assert.equal((await composeFollowUp(4)).tabId, 41);
+  assert.equal((await composeFollowUp("follow-up-tracking")).tabId, 41);
   assert.equal(composeCalls.length, 1);
   assert.equal(composeCalls[0].messageId, undefined);
   assert.deepEqual(JSON.parse(JSON.stringify(composeCalls[0])), {
     details: {
-      to: ["recipient@example.test"],
+      to: ["recipient4@example.test"],
       cc: ["cc@example.test"],
       subject: "Re: Project update",
-      plainTextBody: "Hello, please share an update.\n\nRegarding: Project update\n\nBest regards,",
-      isPlainText: true,
     },
   });
+  assert.deepEqual(JSON.parse(JSON.stringify(composeUpdates)), [{
+    tabId: 41,
+    details: {
+      body: "Hello, please share an update.<br><br>Regarding: Project update<br><br>Best regards,<br><br><div>Antonio Morais<br></div>",
+    },
+  }]);
+
+  await messenger.compose.onAfterSend.emit(
+    { id: 41 },
+    { headerMessageId: "<follow-up-sent@example.test>", messages: [{ id: 44 }] }
+  );
+  const sentFollowUp = (await getTrackedMessages()).find(entry =>
+    entry.trackingId === "follow-up-tracking"
+  );
+  assert.deepEqual(sentFollowUp.messageIds, ["<follow-up-sent@example.test>"]);
+  assert.equal(sentFollowUp.localMessageId, 44);
 
   storage.set("trackedMessages", [{
+    trackingId: "scan-tracking",
     localMessageId: 6,
     messageId: "<scan-target@example.test>",
     subject: "Scan target",
@@ -181,6 +219,23 @@ const scanRecentReplies = vm.runInContext("scanRecentReplies", context);
   assert.equal(recentReplyQueries.length, 1);
   assert.equal(recentReplyQueries[0].fromMe, false);
   assert.ok(recentReplyQueries[0].fromDate instanceof Date);
+
+  storage.set("trackedMessages", []);
+  await Promise.all([
+    createTrackedMessage(8, "2026-08-30"),
+    createTrackedMessage(9, "2026-08-30"),
+  ]);
+  assert.equal((await getTrackedMessages()).length, 2);
+
+  storage.set("trackedMessages", []);
+  await createTrackedMessage(10, "2026-08-30");
+  await createTrackedMessage(11, "2026-08-30");
+  assert.equal((await getTrackedMessages()).length, 2);
+
+  await assert.rejects(
+    updateTrackedMessageDueDate("tracking-unknown", "2026-02-30"),
+    /valid due date/
+  );
   console.log("background.test.cjs: passed");
 })().catch(error => {
   console.error(error);

@@ -1,5 +1,18 @@
 # Release notes
 
+## v1.5.1 — 2026-08-23
+
+- Prevent concurrent tracking operations from overwriting each other.
+- Add stable Reply Monitor record identifiers and migrate existing local data.
+- Complete the local-date fix in the message toolbar popup.
+- Prevent messages without a `Message-ID` header from colliding.
+- Respect plain-text and HTML identity signatures in follow-up drafts.
+- Continue reply correlation after a follow-up draft is sent by recording its
+  outgoing `Message-ID`; Reply Monitor still never sends automatically.
+- Prevent duplicate recent-reply scans from running at the same time.
+- Derive the XPI name from the manifest version and include the MPL-2.0 license.
+- Add CI for syntax checks, tests, and XPI packaging.
+
 ## v1.5.0 — 2026-08-23
 
 - Open the dashboard when an overdue-reply notification is clicked.

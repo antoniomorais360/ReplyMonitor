@@ -1,8 +1,11 @@
-param(
-    [string]$OutputPath = (Join-Path $PSScriptRoot "..\dist\reply-monitor-1.5.0.xpi")
-)
+param([string]$OutputPath)
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$manifestPath = Join-Path $projectRoot "manifest.json"
+$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+if ([string]::IsNullOrWhiteSpace($OutputPath)) {
+    $OutputPath = Join-Path $projectRoot "dist\reply-monitor-$($manifest.version).xpi"
+}
 $resolvedOutput = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
 $outputDirectory = Split-Path -Parent $resolvedOutput
 
@@ -14,17 +17,18 @@ if (Test-Path -LiteralPath $resolvedOutput) {
 $files = Get-ChildItem -LiteralPath $projectRoot -Recurse -File |
     Where-Object {
         $relativePath = [System.IO.Path]::GetRelativePath($projectRoot, $_.FullName).Replace('\', '/')
-        $relativePath -eq 'manifest.json' -or
+        $relativePath -in @('manifest.json', 'LICENSE') -or
         $relativePath -match '^(src|popup|options|dashboard|icons)/'
     }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-$archive = [System.IO.Compression.ZipFile]::Open(
-    $resolvedOutput,
-    [System.IO.Compression.ZipArchiveMode]::Create
-)
+$archive = $null
 
 try {
+    $archive = [System.IO.Compression.ZipFile]::Open(
+        $resolvedOutput,
+        [System.IO.Compression.ZipArchiveMode]::Create
+    )
     foreach ($file in $files) {
         $entryName = [System.IO.Path]::GetRelativePath($projectRoot, $file.FullName).Replace('\', '/')
         [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
@@ -36,7 +40,9 @@ try {
     }
 }
 finally {
-    $archive.Dispose()
+    if ($null -ne $archive) {
+        $archive.Dispose()
+    }
 }
 
 Write-Output "Package created at $resolvedOutput"

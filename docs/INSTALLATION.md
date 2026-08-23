@@ -44,7 +44,8 @@ installation workflow above. Do not disable Thunderbird security settings.
 
 The **Include CC recipients**, **Include BCC recipients**, and **Default
 follow-up text** preferences control new follow-up drafts. They never cause a
-message to be sent automatically.
+message to be sent automatically. The draft respects the compose format of the
+selected Thunderbird identity, including HTML signatures.
 
 To recover a reply received while Reply Monitor was not running, open the
 dashboard and select **Scan recent replies**. The scan checks received messages

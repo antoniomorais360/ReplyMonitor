@@ -22,7 +22,7 @@ function createMessageCard(entry, today) {
   const state = dueState(entry, today);
   const card = document.createElement("article");
   card.className = "message-card";
-  card.dataset.messageId = entry.localMessageId;
+  card.dataset.trackingId = entry.trackingId;
 
   const heading = document.createElement("h2");
   heading.textContent = entry.subject || "(No subject)";
@@ -87,20 +87,20 @@ list.addEventListener("click", async event => {
   if (!button) return;
 
   const card = button.closest(".message-card");
-  const messageId = Number(card.dataset.messageId);
+  const trackingId = card.dataset.trackingId;
   try {
     if (button.dataset.action === "save-date") {
       const dueDate = card.querySelector("input[type=date]").value;
       if (!dueDate) return;
-      await messenger.runtime.sendMessage({ type: "update-due-date", messageId, dueDate });
+      await messenger.runtime.sendMessage({ type: "update-due-date", trackingId, dueDate });
       status.value = "Due date saved.";
     }
     if (button.dataset.action === "stop-tracking") {
-      await messenger.runtime.sendMessage({ type: "remove-tracked-message", messageId });
+      await messenger.runtime.sendMessage({ type: "remove-tracked-message", trackingId });
       status.value = "Reply tracking stopped.";
     }
     if (button.dataset.action === "compose-follow-up") {
-      await messenger.runtime.sendMessage({ type: "compose-follow-up", messageId });
+      await messenger.runtime.sendMessage({ type: "compose-follow-up", trackingId });
       status.value = "Follow-up draft opened. Review it before sending.";
     }
     await refreshDashboard();
@@ -114,7 +114,10 @@ document.querySelector("#preferences-button").addEventListener("click", () => {
   messenger.runtime.openOptionsPage();
 });
 
-document.querySelector("#scan-recent-replies-button").addEventListener("click", async () => {
+document.querySelector("#scan-recent-replies-button").addEventListener("click", async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  status.value = "Scanning recent replies…";
   try {
     const result = await messenger.runtime.sendMessage({ type: "scan-recent-replies" });
     const replyLabel = result.detected === 1 ? "reply" : "replies";
@@ -123,6 +126,8 @@ document.querySelector("#scan-recent-replies-button").addEventListener("click", 
   } catch (error) {
     console.error(error);
     status.value = "Could not scan recent replies.";
+  } finally {
+    button.disabled = false;
   }
 });
 

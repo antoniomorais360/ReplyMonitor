@@ -2,7 +2,6 @@
 
 const STORAGE_KEY = "settings";
 const defaults = {
-  enabled: true,
   reminderTemplate: "",
   includeCc: true,
   includeBcc: false,
@@ -14,7 +13,6 @@ const form = document.querySelector("#settings-form");
 const status = document.querySelector("#status");
 
 function populateForm(settings) {
-  form.enabled.checked = settings.enabled;
   form.includeCc.checked = settings.includeCc;
   form.includeBcc.checked = settings.includeBcc;
   form.remindersEnabled.checked = settings.remindersEnabled;
@@ -30,7 +28,6 @@ async function loadSettings() {
 form.addEventListener("submit", async event => {
   event.preventDefault();
   const settings = {
-    enabled: form.enabled.checked,
     includeCc: form.includeCc.checked,
     includeBcc: form.includeBcc.checked,
     remindersEnabled: form.remindersEnabled.checked,
