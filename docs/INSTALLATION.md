@@ -39,6 +39,12 @@ installation workflow above. Do not disable Thunderbird security settings.
 3. Open the Reply Monitor toolbar button to view the dashboard.
 4. Open **Preferences** to enable reminders, select the reminder hour, and use
    **Test notification** to verify system notifications.
+5. For an awaiting-reply item, select **Compose follow-up**. The extension
+   opens a draft only; review its recipients and text before you send it.
+
+The **Include CC recipients**, **Include BCC recipients**, and **Default
+follow-up text** preferences control new follow-up drafts. They never cause a
+message to be sent automatically.
 
 ## Troubleshooting
 

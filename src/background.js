@@ -122,6 +122,8 @@ async function createTrackedMessage(messageId, dueDate) {
     subject: message.subject,
     author: message.author,
     recipients: message.recipients,
+    ccRecipients: message.ccList ?? [],
+    bccRecipients: message.bccList ?? [],
     dueDate,
     createdAt: new Date().toISOString(),
     status: "awaiting-reply",
@@ -134,6 +136,62 @@ async function createTrackedMessage(messageId, dueDate) {
   }
   await saveTrackedMessages(trackedMessages);
   return entry;
+}
+
+function uniqueRecipients(...recipientLists) {
+  const seen = new Set();
+  return recipientLists.flat().filter(recipient => {
+    const normalized = recipient.trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) return false;
+    seen.add(normalized);
+    return true;
+  });
+}
+
+function followUpSubject(subject) {
+  return /^re:/i.test(subject ?? "") ? subject : `Re: ${subject || "(No subject)"}`;
+}
+
+function followUpBody(template, subject) {
+  const intro = template || "Hello,\n\nI would like to follow up on the message below.";
+  return `${intro}\n\nRegarding: ${subject || "(No subject)"}\n\nBest regards,`;
+}
+
+async function composeFollowUp(messageId) {
+  const trackedMessages = await getTrackedMessages();
+  const entry = trackedMessages.find(item => item.localMessageId === messageId);
+  if (!entry) throw new Error("Tracked message not found.");
+  if (entry.status === "replied") throw new Error("This message already has a recorded reply.");
+
+  const settings = await ensureSettings();
+  let message = null;
+  try {
+    message = await messenger.messages.get(messageId);
+  } catch (error) {
+    console.warn("Could not read the original message; using stored recipients.", error);
+  }
+
+  const to = uniqueRecipients(message?.recipients ?? entry.recipients ?? []);
+  if (to.length === 0) throw new Error("No recipients are available for this follow-up.");
+
+  const cc = settings.includeCc
+    ? uniqueRecipients(message?.ccList ?? entry.ccRecipients ?? [])
+    : [];
+  const bcc = settings.includeBcc
+    ? uniqueRecipients(message?.bccList ?? entry.bccRecipients ?? [])
+    : [];
+
+  const details = {
+    to,
+    subject: followUpSubject(entry.subject),
+    plainTextBody: followUpBody(settings.reminderTemplate, entry.subject),
+    isPlainText: true,
+  };
+  if (cc.length > 0) details.cc = cc;
+  if (bcc.length > 0) details.bcc = bcc;
+
+  const tab = await messenger.compose.beginNew(undefined, details);
+  return { tabId: tab.id };
 }
 
 async function removeTrackedMessage(messageId) {
@@ -296,6 +354,9 @@ messenger.runtime.onMessage.addListener(async request => {
   if (request.type === "remove-tracked-message") {
     await removeTrackedMessage(request.messageId);
     return null;
+  }
+  if (request.type === "compose-follow-up") {
+    return composeFollowUp(request.messageId);
   }
   if (request.type === "test-reminder") {
     return showOverdueReminder({ force: true });

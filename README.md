@@ -15,6 +15,8 @@ messages that need a reply.
 - Update a due date or stop tracking a message.
 - Detect incoming replies through standard email reply headers.
 - Receive a daily local notification for overdue replies.
+- Open a prefilled follow-up draft from an awaiting-reply dashboard item; Reply
+  Monitor never sends the message automatically.
 - Keep all tracking data in Thunderbird local storage; no message data is sent
   to a third-party service.
 
@@ -37,7 +39,9 @@ For installation instructions, testing steps, and troubleshooting, see the
    and save.
 3. Open the Reply Monitor toolbar button to see the dashboard.
 4. When the recipient replies, the item is marked **Reply received**.
-5. Open **Preferences** from the dashboard to configure daily reminders.
+5. Use **Compose follow-up** to open a draft, then review and send it yourself.
+6. Open **Preferences** from the dashboard to configure daily reminders and
+   the default follow-up text.
 
 ## Privacy
 

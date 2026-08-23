@@ -49,13 +49,19 @@ function createMessageCard(entry, today) {
   saveButton.type = "button";
   saveButton.dataset.action = "save-date";
   saveButton.textContent = "Save date";
+  const composeButton = document.createElement("button");
+  composeButton.type = "button";
+  composeButton.dataset.action = "compose-follow-up";
+  composeButton.textContent = "Compose follow-up";
   const stopButton = document.createElement("button");
   stopButton.type = "button";
   stopButton.dataset.action = "stop-tracking";
   stopButton.className = "secondary";
   stopButton.textContent = "Stop tracking";
 
-  controls.append(dueDate, saveButton, stopButton);
+  controls.append(dueDate, saveButton);
+  if (entry.status !== "replied") controls.append(composeButton);
+  controls.append(stopButton);
   card.append(heading, recipient, stateLabel);
   if (entry.status === "replied") card.append(replyDetails);
   card.append(controls);
@@ -92,6 +98,10 @@ list.addEventListener("click", async event => {
     if (button.dataset.action === "stop-tracking") {
       await messenger.runtime.sendMessage({ type: "remove-tracked-message", messageId });
       status.value = "Reply tracking stopped.";
+    }
+    if (button.dataset.action === "compose-follow-up") {
+      await messenger.runtime.sendMessage({ type: "compose-follow-up", messageId });
+      status.value = "Follow-up draft opened. Review it before sending.";
     }
     await refreshDashboard();
   } catch (error) {
