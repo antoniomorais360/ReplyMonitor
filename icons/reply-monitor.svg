@@ -1,5 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Reply Monitor">
-  <rect width="64" height="64" rx="12" fill="#1d4ed8"/>
-  <path d="M48 20H26a10 10 0 0 0-10 10v4h-5l9 10 9-10h-5v-4a2 2 0 0 1 2-2h22z" fill="#fff"/>
-  <path d="M40 38H18a2 2 0 0 1-2-2v-2h-5l9-10 9 10h-5v2a10 10 0 0 0 10 10h6z" fill="#93c5fd"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ReplyMonitor">
+  <defs>
+    <linearGradient id="background" x1="8" y1="6" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#1e40af"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#background)"/>
+  <path d="M16 17h32a5 5 0 0 1 5 5v18a5 5 0 0 1-5 5H31l-10 7v-7h-5a5 5 0 0 1-5-5V22a5 5 0 0 1 5-5Z" fill="#fff"/>
+  <path d="M23 31.5 29 37l13-14" fill="none" stroke="#1d4ed8" stroke-linecap="round" stroke-linejoin="round" stroke-width="4"/>
+  <circle cx="50" cy="48" r="9" fill="#22c55e" stroke="#fff" stroke-width="3"/>
+  <path d="m46.5 48 2.3 2.3 4.7-5" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"/>
 </svg>

@@ -33,6 +33,15 @@ p {
   margin: 0;
 }
 
+.tracking-group {
+  display: grid;
+  gap: .75rem;
+}
+
+.tracking-group + .tracking-group {
+  margin-top: 1.5rem;
+}
+
 .page-header p,
 .recipient,
 .reply-details {
@@ -69,6 +78,18 @@ p {
 .message-card {
   display: grid;
   gap: .75rem;
+}
+
+.replied-group {
+  background: color-mix(in srgb, #26733c 10%, transparent);
+  border: 1px solid color-mix(in srgb, #26733c 45%, transparent);
+  border-radius: .5rem;
+  padding: 1rem;
+}
+
+.message-card.replied-card {
+  background: color-mix(in srgb, #26733c 14%, transparent);
+  border-color: #26733c;
 }
 
 .message-card h2 {

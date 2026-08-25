@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Reply Monitor",
   "description": "Track sent messages and the replies you expect.",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "browser_specific_settings": {
     "gecko": {
       "id": "replymonitor@antoniomorais360.github.io",
@@ -13,9 +13,16 @@
     "scripts": ["src/background.js"]
   },
   "action": {
-    "default_title": "Open Reply Monitor dashboard"
+    "default_title": "ReplyMonitor",
+    "default_icon": {
+      "16": "icons/reply-monitor.svg",
+      "32": "icons/reply-monitor.svg",
+      "48": "icons/reply-monitor.svg"
+    }
   },
   "icons": {
+    "16": "icons/reply-monitor.svg",
+    "32": "icons/reply-monitor.svg",
     "48": "icons/reply-monitor.svg"
   },
   "message_display_action": {

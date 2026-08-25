@@ -1,5 +1,11 @@
 # Release notes
 
+## v1.5.2 — 2026-08-24
+
+- Rename the toolbar action to **ReplyMonitor** and display the extension icon.
+- Add a dedicated **Replies received** dashboard section.
+- Highlight reply-received cards and their dashboard section for quicker review.
+
 ## v1.5.1 — 2026-08-23
 
 - Prevent concurrent tracking operations from overwriting each other.

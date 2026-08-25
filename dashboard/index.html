@@ -27,7 +27,14 @@
       </section>
 
       <p id="empty-state" hidden>No messages are currently being tracked.</p>
-      <section id="tracked-list" class="tracked-list" aria-label="Tracked messages"></section>
+      <section class="tracking-group" aria-labelledby="awaiting-replies-heading">
+        <h2 id="awaiting-replies-heading">Awaiting reply</h2>
+        <div id="tracked-list" class="tracked-list" aria-label="Messages awaiting a reply"></div>
+      </section>
+      <section id="replied-section" class="tracking-group replied-group" aria-labelledby="replied-heading" hidden>
+        <h2 id="replied-heading">Replies received</h2>
+        <div id="replied-list" class="tracked-list" aria-label="Messages with a received reply"></div>
+      </section>
       <output id="status" aria-live="polite"></output>
     </main>
   </body>

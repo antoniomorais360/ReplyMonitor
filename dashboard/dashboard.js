@@ -1,6 +1,9 @@
 /* global messenger */
 
+const dashboard = document.querySelector("main");
 const list = document.querySelector("#tracked-list");
+const repliedList = document.querySelector("#replied-list");
+const repliedSection = document.querySelector("#replied-section");
 const emptyState = document.querySelector("#empty-state");
 const status = document.querySelector("#status");
 const totalCount = document.querySelector("#total-count");
@@ -21,7 +24,7 @@ function recipientLabel(entry) {
 function createMessageCard(entry, today) {
   const state = dueState(entry, today);
   const card = document.createElement("article");
-  card.className = "message-card";
+  card.className = `message-card${entry.status === "replied" ? " replied-card" : ""}`;
   card.dataset.trackingId = entry.trackingId;
 
   const heading = document.createElement("h2");
@@ -70,11 +73,16 @@ function createMessageCard(entry, today) {
 
 function renderDashboard({ items, today }) {
   list.replaceChildren();
+  repliedList.replaceChildren();
   totalCount.textContent = items.length;
   overdueCount.textContent = items.filter(item => item.status !== "replied" && item.dueDate < today).length;
   todayCount.textContent = items.filter(item => item.status !== "replied" && item.dueDate === today).length;
   emptyState.hidden = items.length > 0;
-  items.forEach(item => list.append(createMessageCard(item, today)));
+  const awaitingReplies = items.filter(item => item.status !== "replied");
+  const receivedReplies = items.filter(item => item.status === "replied");
+  awaitingReplies.forEach(item => list.append(createMessageCard(item, today)));
+  receivedReplies.forEach(item => repliedList.append(createMessageCard(item, today)));
+  repliedSection.hidden = receivedReplies.length === 0;
 }
 
 async function refreshDashboard() {
@@ -82,7 +90,7 @@ async function refreshDashboard() {
   renderDashboard(data);
 }
 
-list.addEventListener("click", async event => {
+dashboard.addEventListener("click", async event => {
   const button = event.target.closest("button[data-action]");
   if (!button) return;
 
