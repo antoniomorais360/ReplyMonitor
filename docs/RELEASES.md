@@ -1,5 +1,10 @@
 # Release notes
 
+## v1.5.3 — 2026-08-24
+
+- Declare that Reply Monitor does not collect or transmit data, as required by
+  the add-on validator.
+
 ## v1.5.2 — 2026-08-24
 
 - Rename the toolbar action to **ReplyMonitor** and display the extension icon.
