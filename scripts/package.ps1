@@ -18,7 +18,7 @@ $files = Get-ChildItem -LiteralPath $projectRoot -Recurse -File |
     Where-Object {
         $relativePath = [System.IO.Path]::GetRelativePath($projectRoot, $_.FullName).Replace('\', '/')
         $relativePath -in @('manifest.json', 'LICENSE') -or
-        $relativePath -match '^(src|popup|options|dashboard|icons)/'
+        $relativePath -match '^(src|popup|compose|options|dashboard|icons)/'
     }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem

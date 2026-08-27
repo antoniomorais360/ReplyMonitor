@@ -10,6 +10,7 @@ const composeCalls = [];
 const composeUpdates = [];
 const createdTabs = [];
 const recentReplyQueries = [];
+const openedMessages = [];
 let generatedTrackingId = 0;
 
 function event() {
@@ -21,6 +22,11 @@ function event() {
 }
 
 const messenger = {
+  identities: {
+    async list() {
+      return [{ id: "identity-1", email: "owner@example.test" }];
+    },
+  },
   storage: {
     local: {
       async get(key) {
@@ -40,9 +46,18 @@ const messenger = {
   },
   messages: {
     async get(messageId) {
-      if ([4, 8, 9, 10, 11].includes(messageId)) {
+      if ([1, 2, 4, 8, 9, 10, 11, 45].includes(messageId)) {
         return {
-          subject: messageId === 4 ? "Project update" : `Message ${messageId}`,
+          id: messageId,
+          subject: messageId === 1
+            ? "Original message"
+            : messageId === 2
+              ? "Re: Original message"
+              : messageId === 4
+                ? "Project update"
+                : messageId === 45
+                  ? "Composed message"
+                  : `Message ${messageId}`,
           recipients: [`recipient${messageId}@example.test`],
           ccList: ["cc@example.test"],
           bccList: ["bcc@example.test"],
@@ -52,7 +67,12 @@ const messenger = {
     },
     async getFull(messageId) {
       if (messageId === 2) {
-        return { headers: { "in-reply-to": ["<original@example.test>"] } };
+        return {
+          headers: {
+            "in-reply-to": ["<original@example.test>"],
+            "message-id": ["<reply@example.test>"],
+          },
+        };
       }
       if (messageId === 7) {
         return { headers: { references: ["<scan-target@example.test>"] } };
@@ -60,10 +80,30 @@ const messenger = {
       if (messageId === 8 || messageId === 9) {
         return { headers: { "message-id": [`<message-${messageId}@example.test>`] } };
       }
+      if (messageId === 45) {
+        return { headers: { "message-id": ["<composed-message@example.test>"] } };
+      }
       return { headers: {} };
     },
     async query(queryInfo) {
       recentReplyQueries.push(queryInfo);
+      if (queryInfo.headerMessageId === "fallback@example.test") {
+        return {
+          id: null,
+          messages: [{ id: 12, author: "Fallback sender", subject: "Fallback message" }],
+        };
+      }
+      if (queryInfo.subject === "Metadata fallback" && !("fromMe" in queryInfo)) {
+        return {
+          id: null,
+          messages: [{
+            id: 13,
+            subject: "Metadata fallback",
+            author: "Owner <owner@example.test>",
+            recipients: ["recipient@example.test"],
+          }],
+        };
+      }
       return {
         id: null,
         messages: [{ id: 7, author: "Recent reply sender", subject: "Re: Scan target", date: "2026-08-23T12:00:00Z" }],
@@ -80,6 +120,15 @@ const messenger = {
     onMessage: event(),
   },
   action: { onClicked: event() },
+  messageDisplay: {
+    async open(details) {
+      if (details.messageId === 999 || details.headerMessageId === "fallback@example.test") {
+        throw new Error("Message is no longer available locally.");
+      }
+      openedMessages.push(details);
+      return { id: openedMessages.length };
+    },
+  },
   tabs: {
     query: async () => [],
     create: async details => { createdTabs.push(details); return { id: createdTabs.length }; },
@@ -94,8 +143,11 @@ const messenger = {
     onClicked: event(),
   },
   compose: {
-    async beginNew(messageId, details) {
-      composeCalls.push({ messageId, details });
+    async beginNew() {
+      throw new Error("compose.beginNew must not be used for follow-ups.");
+    },
+    async beginReply(messageId, replyType, details) {
+      composeCalls.push({ messageId, replyType, details });
       return { id: 41 };
     },
     async getComposeDetails() {
@@ -134,6 +186,8 @@ const scanRecentReplies = vm.runInContext("scanRecentReplies", context);
 const createTrackedMessage = vm.runInContext("createTrackedMessage", context);
 const getTrackedMessages = vm.runInContext("getTrackedMessages", context);
 const updateTrackedMessageDueDate = vm.runInContext("updateTrackedMessageDueDate", context);
+const openTrackedMessage = vm.runInContext("openTrackedMessage", context);
+const openStoredMessage = vm.runInContext("openStoredMessage", context);
 
 (async () => {
   await markRepliesReceived({
@@ -142,6 +196,48 @@ const updateTrackedMessageDueDate = vm.runInContext("updateTrackedMessageDueDate
   });
   assert.equal(storage.get("trackedMessages")[0].status, "replied");
   assert.equal(storage.get("trackedMessages")[0].replyAuthor, "Reply sender");
+  assert.equal(storage.get("trackedMessages")[0].replyMessageId, "<reply@example.test>");
+
+  const originalTrackingId = storage.get("trackedMessages")[0].trackingId;
+  await openTrackedMessage(originalTrackingId, "original");
+  await openTrackedMessage(originalTrackingId, "reply");
+  await openStoredMessage(999, "<fallback@example.test>");
+  assert.deepEqual(JSON.parse(JSON.stringify(openedMessages)), [
+    { messageId: 1, location: "tab", active: true },
+    { messageId: 2, location: "tab", active: true },
+    { messageId: 12, location: "tab", active: true },
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(recentReplyQueries[0])), {
+    headerMessageId: "fallback@example.test",
+  });
+  await openStoredMessage(999, null, {
+    subject: "Metadata fallback",
+    recipients: ["recipient@example.test"],
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(openedMessages[3])), {
+    messageId: 13,
+    location: "tab",
+    active: true,
+  });
+
+  storage.set("trackedMessages", [{
+    trackingId: "sent-message-guard",
+    localMessageId: 1,
+    messageId: "<original@example.test>",
+    subject: "Original message",
+    dueDate: "2026-08-30",
+    status: "awaiting-reply",
+  }]);
+  await markRepliesReceived({
+    id: null,
+    messages: [{
+      id: 14,
+      author: "Owner <owner@example.test>",
+      subject: "Re: Original message",
+      date: "2026-08-23T12:00:00Z",
+    }],
+  });
+  assert.equal(storage.get("trackedMessages")[0].status, "awaiting-reply");
 
   storage.set("trackedMessages", [{
     trackingId: "overdue-tracking",
@@ -173,7 +269,7 @@ const updateTrackedMessageDueDate = vm.runInContext("updateTrackedMessageDueDate
     localMessageId: 4,
     messageId: "<follow-up@example.test>",
     subject: "Project update",
-    recipients: ["recipient@example.test"],
+    recipients: ["recipient4@example.test"],
     ccRecipients: ["cc@example.test"],
     bccRecipients: ["bcc@example.test"],
     dueDate: "2026-08-30",
@@ -181,8 +277,9 @@ const updateTrackedMessageDueDate = vm.runInContext("updateTrackedMessageDueDate
   }]);
   assert.equal((await composeFollowUp("follow-up-tracking")).tabId, 41);
   assert.equal(composeCalls.length, 1);
-  assert.equal(composeCalls[0].messageId, undefined);
   assert.deepEqual(JSON.parse(JSON.stringify(composeCalls[0])), {
+    messageId: 4,
+    replyType: "replyToAll",
     details: {
       to: ["recipient4@example.test"],
       cc: ["cc@example.test"],
@@ -204,7 +301,31 @@ const updateTrackedMessageDueDate = vm.runInContext("updateTrackedMessageDueDate
     entry.trackingId === "follow-up-tracking"
   );
   assert.deepEqual(sentFollowUp.messageIds, ["<follow-up-sent@example.test>"]);
-  assert.equal(sentFollowUp.localMessageId, 44);
+  assert.equal(sentFollowUp.localMessageId, 4);
+  assert.equal(sentFollowUp.originalMessageLocalId, 4);
+  assert.equal(sentFollowUp.followUpMessageLocalId, 44);
+
+  await messenger.runtime.onMessage.emit({
+    type: "set-compose-tracking",
+    tabId: 50,
+    dueDate: "2026-09-05",
+  });
+  const [composeTracking] = await messenger.runtime.onMessage.emit({
+    type: "get-compose-tracking",
+    tabId: 50,
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(composeTracking)), {
+    dueDate: "2026-09-05",
+  });
+  await messenger.compose.onAfterSend.emit(
+    { id: 50 },
+    { headerMessageId: "<composed-message@example.test>", messages: [{ id: 45 }] }
+  );
+  const composedTracking = (await getTrackedMessages()).find(entry =>
+    entry.messageId === "<composed-message@example.test>"
+  );
+  assert.equal(composedTracking.localMessageId, 45);
+  assert.equal(composedTracking.dueDate, "2026-09-05");
 
   storage.set("trackedMessages", [{
     trackingId: "scan-tracking",
@@ -216,9 +337,10 @@ const updateTrackedMessageDueDate = vm.runInContext("updateTrackedMessageDueDate
   }]);
   assert.deepEqual(JSON.parse(JSON.stringify(await scanRecentReplies())), { scanned: 1, detected: 1 });
   assert.equal(storage.get("trackedMessages")[0].status, "replied");
-  assert.equal(recentReplyQueries.length, 1);
-  assert.equal(recentReplyQueries[0].fromMe, false);
-  assert.ok(recentReplyQueries[0].fromDate instanceof Date);
+  assert.equal(recentReplyQueries.length, 3);
+  assert.equal("fromMe" in recentReplyQueries[2], false);
+  assert.equal(recentReplyQueries[2].subject, "Scan target");
+  assert.ok(recentReplyQueries[2].fromDate instanceof Date);
 
   storage.set("trackedMessages", []);
   await Promise.all([

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Track reply</title>
+    <link rel="stylesheet" href="../popup/track.css">
+    <script type="module" src="track.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>Track reply</h1>
+      <p id="message-subject">Loading draft…</p>
+      <form id="track-form" hidden>
+        <label for="due-date">Due date</label>
+        <input id="due-date" name="dueDate" type="date" required>
+        <div class="actions">
+          <button id="track-button" type="submit">Track after sending</button>
+          <button id="untrack-button" type="button">Do not track</button>
+        </div>
+      </form>
+      <output id="status" aria-live="polite"></output>
+    </main>
+  </body>
+</html>

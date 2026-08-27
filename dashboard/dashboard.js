@@ -52,6 +52,14 @@ function createMessageCard(entry, today) {
   saveButton.type = "button";
   saveButton.dataset.action = "save-date";
   saveButton.textContent = "Save date";
+  const openOriginalButton = document.createElement("button");
+  openOriginalButton.type = "button";
+  openOriginalButton.dataset.action = "open-original";
+  openOriginalButton.textContent = "Open original";
+  const openReplyButton = document.createElement("button");
+  openReplyButton.type = "button";
+  openReplyButton.dataset.action = "open-reply";
+  openReplyButton.textContent = "Open reply";
   const composeButton = document.createElement("button");
   composeButton.type = "button";
   composeButton.dataset.action = "compose-follow-up";
@@ -62,8 +70,9 @@ function createMessageCard(entry, today) {
   stopButton.className = "secondary";
   stopButton.textContent = "Stop tracking";
 
-  controls.append(dueDate, saveButton);
+  controls.append(openOriginalButton, dueDate, saveButton);
   if (entry.status !== "replied") controls.append(composeButton);
+  if (entry.status === "replied") controls.append(openReplyButton);
   controls.append(stopButton);
   card.append(heading, recipient, stateLabel);
   if (entry.status === "replied") card.append(replyDetails);
@@ -111,10 +120,27 @@ dashboard.addEventListener("click", async event => {
       await messenger.runtime.sendMessage({ type: "compose-follow-up", trackingId });
       status.value = "Follow-up draft opened. Review it before sending.";
     }
+    if (button.dataset.action === "open-original") {
+      await messenger.runtime.sendMessage({
+        type: "open-tracked-message",
+        trackingId,
+        messageType: "original",
+      });
+      status.value = "Original message opened.";
+    }
+    if (button.dataset.action === "open-reply") {
+      await messenger.runtime.sendMessage({
+        type: "open-tracked-message",
+        trackingId,
+        messageType: "reply",
+      });
+      status.value = "Reply opened.";
+    }
     await refreshDashboard();
   } catch (error) {
     console.error(error);
-    status.value = "Could not update the tracked message.";
+    const detail = error?.message ? ` ${error.message}` : "";
+    status.value = `Could not open or update the tracked message.${detail}`;
   }
 });
 
@@ -139,7 +165,22 @@ document.querySelector("#scan-recent-replies-button").addEventListener("click", 
   }
 });
 
-refreshDashboard().catch(error => {
+async function initializeDashboard() {
+  await refreshDashboard();
+  try {
+    const result = await messenger.runtime.sendMessage({ type: "scan-recent-replies" });
+    if (result.detected > 0) {
+      const replyLabel = result.detected === 1 ? "reply" : "replies";
+      status.value = `${result.detected} ${replyLabel} detected automatically.`;
+      await refreshDashboard();
+    }
+  } catch (error) {
+    console.error(error);
+    status.value = "Could not check for recent replies automatically.";
+  }
+}
+
+initializeDashboard().catch(error => {
   console.error(error);
   status.value = "Could not load tracked messages.";
 });

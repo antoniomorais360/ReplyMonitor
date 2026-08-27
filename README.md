@@ -16,10 +16,14 @@ messages that need a reply.
 - Detect incoming replies through standard email reply headers.
 - Receive a daily local notification for overdue replies.
 - Open the dashboard directly from an overdue-reply notification.
-- Scan the last 30 days of received messages on demand to recover replies that
+- Scan the last 7 days of received messages on demand to recover replies that
   arrived while the extension was inactive.
 - Open a prefilled follow-up draft from an awaiting-reply dashboard item; Reply
   Monitor never sends the message automatically.
+- Enable reply tracking directly from the message compose window; tracking is
+  created only after Thunderbird confirms that the message was sent.
+- Open the original tracked message or the reply received from its dashboard
+  card.
 - Preserve tracking records across Thunderbird restarts and message moves by
   using extension-owned record identifiers.
 - Keep all tracking data in Thunderbird local storage; no message data is sent
