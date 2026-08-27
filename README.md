@@ -63,6 +63,11 @@ external service.
 
 Reply Monitor is licensed under the [Mozilla Public License 2.0](LICENSE).
 
+## Authors
+
+- Antonio Morais — modern Thunderbird MailExtension implementation.
+- Lin Han — original Reply Monitor extension and concept.
+
 ## For contributors
 
 ```powershell

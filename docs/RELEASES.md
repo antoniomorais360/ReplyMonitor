@@ -1,5 +1,17 @@
 # Release notes
 
+## v1.5.13 — 2026-08-27
+
+- Correct the Thunderbird Add-ons homepage URL to the public `replymonitor`
+  listing.
+
+## v1.5.12 — 2026-08-27
+
+- Show Antonio Morais and Lin Han as the extension authors in Thunderbird.
+- Add the Reply Monitor Thunderbird Add-ons page as the extension homepage.
+- Expand the Add-ons Manager description with reply detection, due dates,
+  follow-ups, local-only operation, and the no-data-collection commitment.
+
 ## v1.5.11 — 2026-08-27
 
 - Reduce the maximum recent-reply scan window from 30 days to 7 days for faster
