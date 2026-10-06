@@ -165,6 +165,11 @@ const context = vm.createContext({ console, crypto, messenger, Date, Map, Set })
 vm.runInContext(fs.readFileSync("src/background.js", "utf8"), context);
 
 const parseMessageIds = vm.runInContext("messageIdsFromHeaderValues", context);
+const normalizeSettings = vm.runInContext("normalizeSettings", context);
+assert.equal(normalizeSettings({}).recentReplyScanDays, 2);
+assert.equal(normalizeSettings({ recentReplyScanDays: 1 }).recentReplyScanDays, 1);
+assert.equal(normalizeSettings({ recentReplyScanDays: 15 }).recentReplyScanDays, 15);
+assert.equal(normalizeSettings({ recentReplyScanDays: 16 }).recentReplyScanDays, 2);
 assert.deepEqual(
   [...parseMessageIds(["<one@example.test> <two@example.test>"])],
   ["<one@example.test>", "<two@example.test>"]

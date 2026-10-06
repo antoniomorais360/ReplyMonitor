@@ -49,7 +49,9 @@ selected Thunderbird identity, including HTML signatures.
 
 To recover a reply received while Reply Monitor was not running, open the
 dashboard and select **Scan recent replies**. The scan checks received messages
-from the last 7 days and updates matching tracked items locally.
+from the configured recent-reply window and updates matching tracked items
+locally. Set this window from 1 to 15 days in **Preferences**; the default is
+2 days.
 
 ## Troubleshooting
 

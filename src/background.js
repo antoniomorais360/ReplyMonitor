@@ -3,7 +3,8 @@
 const STORAGE_KEY = "settings";
 const TRACKED_MESSAGES_KEY = "trackedMessages";
 const DEFAULT_DUE_DAYS = 7;
-const RECENT_REPLY_SCAN_DAYS = 7;
+const DEFAULT_RECENT_REPLY_SCAN_DAYS = 2;
+const MAX_RECENT_REPLY_SCAN_DAYS = 15;
 const REMINDER_ALARM_NAME = "overdue-reply-reminder";
 const OVERDUE_NOTIFICATION_ID = "reply-monitor-overdue";
 
@@ -13,6 +14,7 @@ const defaultSettings = Object.freeze({
   includeBcc: false,
   remindersEnabled: true,
   reminderHour: 9,
+  recentReplyScanDays: DEFAULT_RECENT_REPLY_SCAN_DAYS,
 });
 
 let trackedMessagesMutationQueue = Promise.resolve();
@@ -22,6 +24,7 @@ const composeTrackingRequests = new Map();
 
 function normalizeSettings(settings = {}) {
   const reminderHour = Number(settings.reminderHour);
+  const recentReplyScanDays = Number(settings.recentReplyScanDays);
   return {
     reminderTemplate: typeof settings.reminderTemplate === "string"
       ? settings.reminderTemplate
@@ -38,6 +41,10 @@ function normalizeSettings(settings = {}) {
     reminderHour: Number.isInteger(reminderHour) && reminderHour >= 0 && reminderHour <= 23
       ? reminderHour
       : defaultSettings.reminderHour,
+    recentReplyScanDays: Number.isInteger(recentReplyScanDays) &&
+      recentReplyScanDays >= 1 && recentReplyScanDays <= MAX_RECENT_REPLY_SCAN_DAYS
+      ? recentReplyScanDays
+      : defaultSettings.recentReplyScanDays,
   };
 }
 
@@ -509,8 +516,9 @@ function scanRecentReplies() {
     );
     if (trackedMessages.length === 0) return { scanned: 0, detected: 0 };
 
+    const { recentReplyScanDays } = await ensureSettings();
     const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - RECENT_REPLY_SCAN_DAYS);
+    cutoff.setDate(cutoff.getDate() - recentReplyScanDays);
     const candidates = new Map();
     const searches = new Map();
 

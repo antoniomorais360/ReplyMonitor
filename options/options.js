@@ -7,6 +7,7 @@ const defaults = {
   includeBcc: false,
   remindersEnabled: true,
   reminderHour: 9,
+  recentReplyScanDays: 2,
 };
 
 const form = document.querySelector("#settings-form");
@@ -17,6 +18,7 @@ function populateForm(settings) {
   form.includeBcc.checked = settings.includeBcc;
   form.remindersEnabled.checked = settings.remindersEnabled;
   form.reminderHour.value = settings.reminderHour;
+  form.recentReplyScanDays.value = settings.recentReplyScanDays;
   form.reminderTemplate.value = settings.reminderTemplate;
 }
 
@@ -32,6 +34,7 @@ form.addEventListener("submit", async event => {
     includeBcc: form.includeBcc.checked,
     remindersEnabled: form.remindersEnabled.checked,
     reminderHour: Number(form.reminderHour.value),
+    recentReplyScanDays: Number(form.recentReplyScanDays.value),
     reminderTemplate: form.reminderTemplate.value.trim(),
   };
 

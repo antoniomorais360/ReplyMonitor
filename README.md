@@ -16,8 +16,8 @@ messages that need a reply.
 - Detect incoming replies through standard email reply headers.
 - Receive a daily local notification for overdue replies.
 - Open the dashboard directly from an overdue-reply notification.
-- Scan the last 7 days of received messages on demand to recover replies that
-  arrived while the extension was inactive.
+- Scan a configurable 1–15 day window of received messages to recover replies
+  that arrived while the extension was inactive; the default is 2 days.
 - Open a prefilled follow-up draft from an awaiting-reply dashboard item; Reply
   Monitor never sends the message automatically.
 - Enable reply tracking directly from the message compose window; tracking is

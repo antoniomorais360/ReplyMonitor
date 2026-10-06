@@ -34,7 +34,8 @@ fieldset {
   gap: .75rem;
 }
 
-#reminder-hour {
+#reminder-hour,
+#recent-reply-scan-days {
   max-width: 6rem;
 }
 

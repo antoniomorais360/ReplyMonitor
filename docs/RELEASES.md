@@ -1,5 +1,25 @@
 # Release notes
 
+## v1.5.17 — 2026-09-15
+
+- Add a **Preferences** setting for the recent-reply scan window, from 1 to 15
+  days, with a default of 2 days.
+
+## v1.5.16 — 2026-09-15
+
+- Reduce automatic and manual recent-reply scans from 7 days to 2 days to
+  reduce dashboard startup work.
+
+## v1.5.15 — 2026-08-28
+
+- Show the ReplyMonitor toolbar button in the Tasks and Address Book spaces,
+  in addition to Mail and Calendar.
+
+## v1.5.14 — 2026-08-28
+
+- Keep the ReplyMonitor toolbar button visible in both the Mail and Calendar
+  spaces of Thunderbird.
+
 ## v1.5.13 — 2026-08-27
 
 - Correct the Thunderbird Add-ons homepage URL to the public `replymonitor`
