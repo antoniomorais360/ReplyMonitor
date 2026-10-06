@@ -6,6 +6,23 @@ const dueDate = document.querySelector("#due-date");
 const status = document.querySelector("#status");
 const untrackButton = document.querySelector("#untrack-button");
 let composeTabId;
+let busy = false;
+
+async function performAction(action) {
+  if (busy) return;
+  busy = true;
+  const buttons = [...form.querySelectorAll("button")];
+  buttons.forEach(button => { button.disabled = true; });
+  status.value = "Working…";
+  try { await action(); }
+  catch (error) {
+    console.error(error);
+    status.value = "Could not update tracking. Please try again.";
+  } finally {
+    busy = false;
+    buttons.forEach(button => { button.disabled = false; });
+  }
+}
 
 function defaultDueDate() {
   const date = new Date();
@@ -39,6 +56,7 @@ async function initialize() {
 
 form.addEventListener("submit", async event => {
   event.preventDefault();
+  await performAction(async () => {
   await messenger.runtime.sendMessage({
     type: "set-compose-tracking",
     tabId: composeTabId,
@@ -46,15 +64,18 @@ form.addEventListener("submit", async event => {
   });
   status.value = "This message will be tracked after it is sent.";
   untrackButton.hidden = false;
+  });
 });
 
 untrackButton.addEventListener("click", async () => {
+  await performAction(async () => {
   await messenger.runtime.sendMessage({
     type: "clear-compose-tracking",
     tabId: composeTabId,
   });
   status.value = "Reply tracking is disabled for this message.";
   untrackButton.hidden = true;
+  });
 });
 
 initialize().catch(error => {

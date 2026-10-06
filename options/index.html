@@ -35,6 +35,10 @@
         </fieldset>
 
         <label for="recent-reply-scan-days">Recent reply scan window (days)</label>
+        <label class="checkbox">
+          <input name="autoScanOnOpen" type="checkbox">
+          Scan automatically at startup and when opening the dashboard (at most once every 5 minutes)
+        </label>
         <input id="recent-reply-scan-days" name="recentReplyScanDays" type="number" min="1" max="15" required>
 
         <label for="reminder-template">Default follow-up text</label>

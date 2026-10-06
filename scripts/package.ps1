@@ -1,5 +1,7 @@
 param([string]$OutputPath)
 
+$ErrorActionPreference = 'Stop'
+
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $manifestPath = Join-Path $projectRoot "manifest.json"
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
@@ -45,4 +47,20 @@ finally {
     }
 }
 
-Write-Output "Package created at $resolvedOutput"
+$verification = [System.IO.Compression.ZipFile]::OpenRead($resolvedOutput)
+try {
+    foreach ($file in $files) {
+        $name = [System.IO.Path]::GetRelativePath($projectRoot, $file.FullName).Replace('\', '/')
+        $entry = $verification.GetEntry($name)
+        if ($null -eq $entry) { throw "Missing packaged file: $name" }
+        $stream = $entry.Open()
+        $sourceStream = [System.IO.File]::OpenRead($file.FullName)
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $actual = [System.BitConverter]::ToString($sha.ComputeHash($stream))
+            $expected = [System.BitConverter]::ToString($sha.ComputeHash($sourceStream))
+            if ($actual -ne $expected) { throw "Packaged content mismatch: $name" }
+        } finally { $stream.Dispose(); $sourceStream.Dispose(); $sha.Dispose() }
+    }
+} finally { $verification.Dispose() }
+Write-Output "Package created and verified at $resolvedOutput"

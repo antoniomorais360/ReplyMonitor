@@ -7,6 +7,23 @@ const status = document.querySelector("#status");
 const untrackButton = document.querySelector("#untrack-button");
 let currentMessage;
 let currentTrackingId;
+let busy = false;
+
+async function performAction(action) {
+  if (busy) return;
+  busy = true;
+  const buttons = [...form.querySelectorAll("button")];
+  buttons.forEach(button => { button.disabled = true; });
+  status.value = "Working…";
+  try { await action(); }
+  catch (error) {
+    console.error(error);
+    status.value = "Could not update tracking. Please try again.";
+  } finally {
+    busy = false;
+    buttons.forEach(button => { button.disabled = false; });
+  }
+}
 
 function defaultDueDate() {
   const date = new Date();
@@ -47,6 +64,7 @@ async function initialize() {
 
 form.addEventListener("submit", async event => {
   event.preventDefault();
+  await performAction(async () => {
   const trackedMessage = await messenger.runtime.sendMessage({
     type: "track-message",
     messageId: currentMessage.id,
@@ -55,9 +73,11 @@ form.addEventListener("submit", async event => {
   currentTrackingId = trackedMessage.trackingId;
   status.value = "Reply tracking is active.";
   untrackButton.hidden = false;
+  });
 });
 
 untrackButton.addEventListener("click", async () => {
+  await performAction(async () => {
   await messenger.runtime.sendMessage({
     type: "untrack-message",
     trackingId: currentTrackingId,
@@ -65,6 +85,7 @@ untrackButton.addEventListener("click", async () => {
   status.value = "Reply tracking stopped.";
   untrackButton.hidden = true;
   currentTrackingId = undefined;
+  });
 });
 
 initialize().catch(error => {

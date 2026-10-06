@@ -8,6 +8,7 @@ const defaults = {
   remindersEnabled: true,
   reminderHour: 9,
   recentReplyScanDays: 2,
+  autoScanOnOpen: true,
 };
 
 const form = document.querySelector("#settings-form");
@@ -19,6 +20,7 @@ function populateForm(settings) {
   form.remindersEnabled.checked = settings.remindersEnabled;
   form.reminderHour.value = settings.reminderHour;
   form.recentReplyScanDays.value = settings.recentReplyScanDays;
+  form.autoScanOnOpen.checked = settings.autoScanOnOpen;
   form.reminderTemplate.value = settings.reminderTemplate;
 }
 
@@ -35,11 +37,17 @@ form.addEventListener("submit", async event => {
     remindersEnabled: form.remindersEnabled.checked,
     reminderHour: Number(form.reminderHour.value),
     recentReplyScanDays: Number(form.recentReplyScanDays.value),
+    autoScanOnOpen: form.autoScanOnOpen.checked,
     reminderTemplate: form.reminderTemplate.value.trim(),
   };
 
-  await messenger.storage.local.set({ [STORAGE_KEY]: settings });
-  status.value = "Preferences saved.";
+  try {
+    await messenger.storage.local.set({ [STORAGE_KEY]: settings });
+    status.value = "Preferences saved.";
+  } catch (error) {
+    console.error(error);
+    status.value = "Could not save preferences. Please try again.";
+  }
 });
 
 document.querySelector("#test-reminder").addEventListener("click", async () => {

@@ -5,7 +5,7 @@
   "author": "Antonio Morais and Lin Han",
   "homepage_url": "https://addons.thunderbird.net/en-US/thunderbird/addon/replymonitor/",
   "description": "Track sent messages, detect replies, set due dates, and compose follow-ups. Local-only, with no data collection.",
-  "version": "1.5.17",
+  "version": "1.5.20",
   "browser_specific_settings": {
     "gecko": {
       "id": "replymonitor@antoniomorais360.github.io",

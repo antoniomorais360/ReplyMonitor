@@ -53,6 +53,10 @@ from the configured recent-reply window and updates matching tracked items
 locally. Set this window from 1 to 15 days in **Preferences**; the default is
 2 days.
 
+Automatic scans at startup and dashboard opening can be disabled in Preferences.
+They wait at least five minutes after a completed scan. The manual scan button
+remains available during this cooldown.
+
 ## Troubleshooting
 
 ### The toolbar button is missing

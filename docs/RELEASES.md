@@ -1,5 +1,28 @@
 # Release notes
 
+## v1.5.20 — 2026-10-06
+
+- Recover original messages page by page, stopping at the first match.
+- Show popup action progress, prevent duplicate submissions, and report failures.
+- Test dashboard removal progress, duplicate clicks, storage failures, and stale refreshes.
+
+## v1.5.19 — 2026-10-06
+
+- Add an automatic-scan preference and a five-minute cooldown after completed scans.
+- Update dashboard cards after background changes and discard stale refreshes.
+- Report preference-save failures and clean up tracking state for closed compose tabs.
+- Verify every packaged file against its source and stop packaging on errors.
+
+## v1.5.18 — 2026-10-06
+
+- Process reply scans in batches, yield between batches, and stop further reads
+  when no pending tracking records remain. An in-flight Thunderbird call must
+  still finish before scanning can stop.
+- Skip unreadable messages and avoid unchanged storage writes.
+- Show removal progress, prevent duplicate clicks, and update the removed card
+  and counters without rebuilding the dashboard.
+- Log scan counts and duration without message content.
+
 ## v1.5.17 — 2026-09-15
 
 - Add a **Preferences** setting for the recent-reply scan window, from 1 to 15

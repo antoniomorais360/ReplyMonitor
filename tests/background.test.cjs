@@ -130,6 +130,7 @@ const messenger = {
     },
   },
   tabs: {
+    onRemoved: event(),
     query: async () => [],
     create: async details => { createdTabs.push(details); return { id: createdTabs.length }; },
     update: async () => {},
@@ -161,7 +162,7 @@ const messenger = {
 };
 
 const crypto = { randomUUID: () => `tracking-${++generatedTrackingId}` };
-const context = vm.createContext({ console, crypto, messenger, Date, Map, Set });
+const context = vm.createContext({ console, crypto, messenger, Date, Map, Set, setTimeout });
 vm.runInContext(fs.readFileSync("src/background.js", "utf8"), context);
 
 const parseMessageIds = vm.runInContext("messageIdsFromHeaderValues", context);
@@ -363,6 +364,70 @@ const openStoredMessage = vm.runInContext("openStoredMessage", context);
     updateTrackedMessageDueDate("tracking-unknown", "2026-02-30"),
     /valid due date/
   );
+  const originalGetFull = messenger.messages.getFull;
+  const originalSet = messenger.storage.local.set;
+  let reads = 0;
+  let writes = 0;
+  messenger.messages.getFull = async () => { reads++; return { headers: {} }; };
+  messenger.storage.local.set = async values => { writes++; await originalSet(values); };
+  storage.set("trackedMessages", []);
+  await markRepliesReceived({ id: null, messages: [{ id: 100 }] });
+  assert.equal(reads, 0, "No message reads without pending records");
+  assert.equal(writes, 0, "No unchanged storage writes");
+
+  const pendingRecord = {
+    trackingId: "slow-scan", originalMessageLocalId: 6, localMessageId: 6,
+    messageId: "<slow@example.test>", status: "awaiting-reply",
+  };
+  storage.set("trackedMessages", [pendingRecord]);
+  let releaseRead;
+  let signalRead;
+  const readStarted = new Promise(resolve => { signalRead = resolve; });
+  messenger.messages.getFull = async () => {
+    reads++;
+    signalRead();
+    await new Promise(resolve => { releaseRead = resolve; });
+    return { headers: {} };
+  };
+  const slowScan = markRepliesReceived({ id: null, messages: [{ id: 101 }, { id: 102 }] });
+  await readStarted;
+  const remove = vm.runInContext("removeTrackedMessage", context);
+  await remove("slow-scan");
+  assert.equal(storage.get("trackedMessages").length, 0, "Removal does not wait for the message read");
+  releaseRead();
+  await slowScan;
+  assert.equal(reads, 1, "Removing the last record stops subsequent reads");
+
+  storage.set("trackedMessages", [pendingRecord]);
+  messenger.messages.getFull = async id => {
+    if (id === 103) throw new Error("Unavailable");
+    return { headers: {} };
+  };
+  let pages = 0;
+  messenger.messages.continueList = async () => {
+    pages++;
+    return { id: null, messages: [{ id: 104 }] };
+  };
+  const writeCount = writes;
+  const result = await markRepliesReceived({ id: "next", messages: [{ id: 103 }] });
+  assert.equal(result.scanned, 2, "Read failures do not prevent subsequent pages");
+  assert.equal(pages, 1);
+  assert.equal(writes, writeCount, "Unmatched scan does not rewrite storage");
+  messenger.messages.getFull = originalGetFull;
+  messenger.storage.local.set = originalSet;
+  const automaticScan = vm.runInContext("scanAutomatically", context);
+  const queryCount = recentReplyQueries.length;
+  const skipped = await automaticScan();
+  assert.equal(skipped.skipped, true, "Automatic scans respect the cooldown");
+  assert.equal(recentReplyQueries.length, queryCount);
+  vm.runInContext("lastScanCompletedAt = 0", context);
+  storage.set("settings", { autoScanOnOpen: false });
+  assert.equal((await automaticScan()).skipped, true, "Automatic scanning can be disabled");
+  await scanRecentReplies();
+  assert.ok(recentReplyQueries.length > queryCount, "Manual scans bypass the automatic preference");
+  await messenger.runtime.onMessage.emit({ type: "set-compose-tracking", tabId: 99, dueDate: "2026-12-01" });
+  await messenger.tabs.onRemoved.emit(99);
+  assert.equal((await messenger.runtime.onMessage.emit({ type: "get-compose-tracking", tabId: 99 }))[0], null);
   console.log("background.test.cjs: passed");
 })().catch(error => {
   console.error(error);

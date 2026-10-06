@@ -31,9 +31,10 @@ jobs:
       - name: Run tests
         shell: pwsh
         run: |
-          node tests/background.test.cjs
-          node tests/popup.test.cjs
-          node tests/compose-popup.test.cjs
+          foreach ($test in Get-ChildItem tests/*.test.cjs) {
+            node $test.FullName
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
       - name: Build XPI
         shell: pwsh

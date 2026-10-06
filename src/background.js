@@ -15,10 +15,12 @@ const defaultSettings = Object.freeze({
   remindersEnabled: true,
   reminderHour: 9,
   recentReplyScanDays: DEFAULT_RECENT_REPLY_SCAN_DAYS,
+  autoScanOnOpen: true,
 });
 
 let trackedMessagesMutationQueue = Promise.resolve();
 let recentReplyScanPromise = null;
+let lastScanCompletedAt = 0;
 const followUpComposeTabs = new Map();
 const composeTrackingRequests = new Map();
 
@@ -29,6 +31,8 @@ function normalizeSettings(settings = {}) {
     reminderTemplate: typeof settings.reminderTemplate === "string"
       ? settings.reminderTemplate
       : defaultSettings.reminderTemplate,
+    autoScanOnOpen: typeof settings.autoScanOnOpen === "boolean"
+      ? settings.autoScanOnOpen : defaultSettings.autoScanOnOpen,
     includeCc: typeof settings.includeCc === "boolean"
       ? settings.includeCc
       : defaultSettings.includeCc,
@@ -144,9 +148,10 @@ async function saveTrackedMessages(trackedMessages) {
 
 function mutateTrackedMessages(mutator) {
   const operation = trackedMessagesMutationQueue.then(async () => {
-    const { items } = await loadTrackedMessages();
+    const { items, migrated } = await loadTrackedMessages();
+    const before = JSON.stringify(items);
     const result = await mutator(items);
-    await saveTrackedMessages(items);
+    if (migrated || JSON.stringify(items) !== before) await saveTrackedMessages(items);
     return result;
   });
   trackedMessagesMutationQueue = operation.catch(() => undefined);
@@ -360,14 +365,29 @@ function hasMatchingRecipient(message, recipients) {
 async function findOriginalMessageByMetadata(entry) {
   if (!entry.subject || !messenger.messages.query) return null;
   const ownAddresses = await getOwnEmailAddresses();
-  const candidates = await allMessagesInList(await messenger.messages.query({
+  return firstMatchingMessage(await messenger.messages.query({
     subject: entry.subject,
-  }));
-  return candidates.find(message =>
+  }), message =>
     ownAddresses.has(emailAddress(message.author)) &&
     normalizeMessageText(message.subject) === normalizeMessageText(entry.subject) &&
     hasMatchingRecipient(message, entry.recipients)
-  ) ?? null;
+  );
+}
+
+async function firstMatchingMessage(page, predicate) {
+  try {
+    while (page) {
+      const match = page.messages.find(predicate);
+      if (match) return match;
+      await new Promise(resolve => setTimeout(resolve, 0));
+      page = page.id ? await messenger.messages.continueList(page.id) : null;
+    }
+    return null;
+  } finally {
+    if (page?.id && messenger.messages.abortList) {
+      await messenger.messages.abortList(page.id).catch(() => {});
+    }
+  }
 }
 
 function matchesStoredMessage(message, metadata) {
@@ -391,10 +411,10 @@ async function findStoredMessage(localMessageId, headerMessageId, metadata) {
   const searchableHeaderMessageId = apiHeaderMessageId(headerMessageId);
   if (searchableHeaderMessageId) {
     try {
-      const matchingMessages = await allMessagesInList(
-        await messenger.messages.query({ headerMessageId: searchableHeaderMessageId })
+      const matchingMessage = await firstMatchingMessage(
+        await messenger.messages.query({ headerMessageId: searchableHeaderMessageId }), () => true
       );
-      if (matchingMessages[0]) return matchingMessages[0];
+      if (matchingMessage) return matchingMessage;
     } catch (queryError) {
       localMessageError = queryError;
     }
@@ -461,15 +481,57 @@ async function getDashboardData() {
   };
 }
 
-async function markRepliesReceived(messageList) {
+async function hasPendingReplies() {
+  return (await getTrackedMessages()).some(entry => entry.status !== "replied");
+}
+
+async function markRepliesReceived(messageList, seen = new Set()) {
+  const started = Date.now();
+  const total = { scanned: 0, detected: 0 };
+  let page = messageList;
+  try {
+    while (page) {
+      if (!await hasPendingReplies()) break;
+      const messages = page.messages.filter(message => {
+        if (seen.has(message.id)) return false;
+        seen.add(message.id);
+        return true;
+      });
+      for (let offset = 0; offset < messages.length; offset += 10) {
+        if (!await hasPendingReplies()) return total;
+        const result = await processReplyBatch(messages.slice(offset, offset + 10));
+        total.scanned += result.scanned;
+        total.detected += result.detected;
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      if (!await hasPendingReplies()) break;
+      page = page.id ? await messenger.messages.continueList(page.id) : null;
+    }
+    return total;
+  } finally {
+    if (page?.id && messenger.messages.abortList) {
+      await messenger.messages.abortList(page.id).catch(() => {});
+    }
+    console.debug("Reply Monitor scan", { ...total, durationMs: Date.now() - started });
+  }
+}
+
+async function processReplyBatch(messages) {
   let scanned = 0;
   const receivedReplies = [];
   const ownAddresses = await getOwnEmailAddresses();
 
-  for (const receivedMessage of await allMessagesInList(messageList)) {
+  for (const receivedMessage of messages) {
+    if (!await hasPendingReplies()) break;
     scanned += 1;
     if (ownAddresses.has(emailAddress(receivedMessage.author))) continue;
-    const fullMessage = await messenger.messages.getFull(receivedMessage.id);
+    let fullMessage;
+    try {
+      fullMessage = await messenger.messages.getFull(receivedMessage.id);
+    } catch {
+      console.warn("Reply Monitor: skipped an unreadable message.");
+      continue;
+    }
     const replyReferences = new Set(
       messageIdsFromHeaderValues([
         ...(fullMessage.headers?.["in-reply-to"] ?? []),
@@ -484,6 +546,7 @@ async function markRepliesReceived(messageList) {
     });
   }
 
+  if (!receivedReplies.length) return { scanned, detected: 0 };
   return mutateTrackedMessages(trackedMessages => {
     let detected = 0;
     for (const { receivedMessage, replyReferences, replyMessageId } of receivedReplies) {
@@ -508,6 +571,14 @@ async function markRepliesReceived(messageList) {
   });
 }
 
+async function scanAutomatically() {
+  const settings = await ensureSettings();
+  if (!settings.autoScanOnOpen || Date.now() - lastScanCompletedAt < 5 * 60 * 1000) {
+    return { scanned: 0, detected: 0, skipped: true };
+  }
+  return scanRecentReplies();
+}
+
 function scanRecentReplies() {
   if (recentReplyScanPromise) return recentReplyScanPromise;
   recentReplyScanPromise = (async () => {
@@ -519,7 +590,8 @@ function scanRecentReplies() {
     const { recentReplyScanDays } = await ensureSettings();
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - recentReplyScanDays);
-    const candidates = new Map();
+    const seen = new Set();
+    const total = { scanned: 0, detected: 0 };
     const searches = new Map();
 
     for (const entry of trackedMessages) {
@@ -536,16 +608,19 @@ function scanRecentReplies() {
     }
 
     for (const [subject, fromDate] of searches) {
+      if (!await hasPendingReplies()) break;
       const queryInfo = { fromDate };
       if (subject !== "__all_messages__") queryInfo.subject = subject;
-      const matchingMessages = await allMessagesInList(
-        await messenger.messages.query(queryInfo)
-      );
-      matchingMessages.forEach(message => candidates.set(message.id, message));
+      const result = await markRepliesReceived(await messenger.messages.query(queryInfo), seen);
+      total.scanned += result.scanned;
+      total.detected += result.detected;
     }
 
-    return markRepliesReceived({ id: null, messages: [...candidates.values()] });
-  })().finally(() => {
+    return total;
+  })().then(result => {
+    lastScanCompletedAt = Date.now();
+    return result;
+  }).finally(() => {
     recentReplyScanPromise = null;
   });
   return recentReplyScanPromise;
@@ -589,7 +664,7 @@ messenger.runtime.onStartup.addListener(() => {
   ensureSettings().catch(console.error);
   createMenus().catch(console.error);
   scheduleReminderAlarm().catch(console.error);
-  scanRecentReplies().catch(error => {
+  scanAutomatically().catch(error => {
     console.error("Could not scan for replies after Thunderbird started.", error);
   });
 });
@@ -670,6 +745,11 @@ messenger.storage.onChanged.addListener((changes, areaName) => {
   }
 });
 
+messenger.tabs.onRemoved.addListener(tabId => {
+  composeTrackingRequests.delete(tabId);
+  followUpComposeTabs.delete(tabId);
+});
+
 messenger.runtime.onMessage.addListener(async request => {
   if (request.type === "track-message") {
     return createTrackedMessage(request.messageId, request.dueDate);
@@ -713,7 +793,7 @@ messenger.runtime.onMessage.addListener(async request => {
     return showOverdueReminder({ force: true });
   }
   if (request.type === "scan-recent-replies") {
-    return scanRecentReplies();
+    return request.automatic ? scanAutomatically() : scanRecentReplies();
   }
   return undefined;
 });
