@@ -16,6 +16,7 @@ let generatedTrackingId = 0;
 function event() {
   const listeners = [];
   return {
+    listeners,
     addListener(listener) { listeners.push(listener); },
     async emit(...args) { return Promise.all(listeners.map(listener => listener(...args))); },
   };
@@ -167,6 +168,11 @@ vm.runInContext(fs.readFileSync("src/background.js", "utf8"), context);
 
 const parseMessageIds = vm.runInContext("messageIdsFromHeaderValues", context);
 const normalizeSettings = vm.runInContext("normalizeSettings", context);
+const runtimeListener = messenger.runtime.onMessage.listeners[0];
+assert.notEqual(runtimeListener.constructor.name, "AsyncFunction");
+assert.equal(runtimeListener({ type: "unknown-message" }), undefined);
+assert.equal(runtimeListener(null), undefined);
+assert.equal(runtimeListener(undefined), undefined);
 assert.equal(normalizeSettings({}).recentReplyScanDays, 2);
 assert.equal(normalizeSettings({ recentReplyScanDays: 1 }).recentReplyScanDays, 1);
 assert.equal(normalizeSettings({ recentReplyScanDays: 15 }).recentReplyScanDays, 15);
@@ -196,6 +202,10 @@ const openTrackedMessage = vm.runInContext("openTrackedMessage", context);
 const openStoredMessage = vm.runInContext("openStoredMessage", context);
 
 (async () => {
+  const response = runtimeListener({ type: "get-compose-tracking", tabId: -1 });
+  assert.equal(typeof response.then, "function");
+  assert.equal(await response, null);
+  await assert.rejects(runtimeListener({ type: "set-compose-tracking", tabId: -1, dueDate: "invalid" }), /valid due date/);
   await markRepliesReceived({
     id: null,
     messages: [{ id: 2, author: "Reply sender", subject: "Re: Original message", date: "2026-08-23T12:00:00Z" }],

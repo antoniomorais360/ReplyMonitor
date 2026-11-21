@@ -1,5 +1,11 @@
 # Release notes
 
+## v1.5.21 — 2026-10-06
+
+- Use a synchronous runtime.onMessage listener, returning a Promise only for
+  recognized requests, as requested by the Thunderbird Add-ons reviewer.
+- Preserve asynchronous responses and error propagation for handled requests.
+
 ## v1.5.20 — 2026-10-06
 
 - Recover original messages page by page, stopping at the first match.

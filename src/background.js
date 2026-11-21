@@ -750,7 +750,21 @@ messenger.tabs.onRemoved.addListener(tabId => {
   followUpComposeTabs.delete(tabId);
 });
 
-messenger.runtime.onMessage.addListener(async request => {
+// Only claim messages handled by this extension. An async listener would
+// return a Promise even for unknown messages and could suppress other replies.
+const runtimeMessageTypes = new Set([
+  "track-message", "untrack-message", "get-tracked-message", "get-dashboard-data",
+  "update-due-date", "remove-tracked-message", "compose-follow-up",
+  "get-compose-tracking", "set-compose-tracking", "clear-compose-tracking",
+  "open-tracked-message", "test-reminder", "scan-recent-replies",
+]);
+
+messenger.runtime.onMessage.addListener(request => {
+  if (!request || !runtimeMessageTypes.has(request.type)) return undefined;
+  return handleRuntimeMessage(request);
+});
+
+async function handleRuntimeMessage(request) {
   if (request.type === "track-message") {
     return createTrackedMessage(request.messageId, request.dueDate);
   }
@@ -796,4 +810,4 @@ messenger.runtime.onMessage.addListener(async request => {
     return request.automatic ? scanAutomatically() : scanRecentReplies();
   }
   return undefined;
-});
+}
